@@ -92,7 +92,7 @@ module tqvp_hx2003_pulse_transmitter (
                     end
                 end else begin
                     // map the lower bits to our DATA_MEM
-                    DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1):0]] <= address[(DATA_REG_ADDR_NUM_BITS - 1):0];
+                    DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1):0]] <= data_in[31:0];
                 end
             end
         end 
@@ -129,7 +129,7 @@ module tqvp_hx2003_pulse_transmitter (
         if (!rst_n) begin
         end else begin
             if (start_pulse == 1'b1) begin
-
+                    
             end
         end
     end
