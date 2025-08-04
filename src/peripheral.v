@@ -8,7 +8,7 @@
 // Change the name of this module to something that reflects its functionality and includes your name for uniqueness
 // For example tqvp_yourname_spi for an SPI peripheral.
 // Then edit tt_wrapper.v line 41 and change tqvp_example to your chosen module name.
-module tqvp_example (
+module tqvp_hx2003_pulse_transmitter (
     input         clk,          // Clock - the TinyQV project clock is normally set to 64MHz.
     input         rst_n,        // Reset_n - low to reset.
 
@@ -31,29 +31,52 @@ module tqvp_example (
     output        user_interrupt  // Dedicated interrupt request for this peripheral
 );
 
-    // Implement a 32-bit read/write register at address 0
-    reg [31:0] example_data;
+    // The various configuration registers
+    reg [31:0] reg_0;
+    reg [31:0] reg_1;
+
+    wire [15:0] config_carrier_start_count = reg_1[15:0];
+    wire [7:0] byte2 = reg_1[23:16];
+    wire [7:0] byte3 = reg_1[31:24]; 
+
+    
+    // Implement a 32-bit register writes
     always @(posedge clk) begin
         if (!rst_n) begin
-            example_data <= 0;
+            // Reset the registers to its defaults
+            reg_0 <= 0;
+            reg_1 <= 0;
         end else begin
-            if (address == 6'h0) begin
-                if (data_write_n != 2'b11)              example_data[7:0]   <= data_in[7:0];
-                if (data_write_n[1] != data_write_n[0]) example_data[15:8]  <= data_in[15:8];
-                if (data_write_n == 2'b10)              example_data[31:16] <= data_in[31:16];
+            if (address == 6'd0) begin
+                reg_0 <= data_in[31:0];
+            end else if (address == 6'd1) begin
+                reg_1 <= data_in[31:0];
             end
-        end
+        end 
     end
 
-    // The bottom 8 bits of the stored data are added to ui_in and output to uo_out.
-    assign uo_out = example_data[7:0] + ui_in;
+    // Other stuff
+    reg [15:0] carrier_counter;
+    reg carrier_output;
+    
+    assign uo_out[6:0] = 0;
+    assign uo_out[7] = carrier_output;
 
-    // Address 0 reads the example data register.  
-    // Address 4 reads ui_in
-    // All other addresses read 0.
-    assign data_out = (address == 6'h0) ? example_data :
-                      (address == 6'h4) ? {24'h0, ui_in} :
-                      32'h0;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            carrier_counter <= 0;
+            carrier_output <= 0;
+        end else begin
+            carrier_counter <= carrier_counter - 1;
+            if (carrier_counter == 16'b0) begin
+                carrier_counter <= config_carrier_start_count;
+                carrier_output <= ~carrier_output;
+            end 
+        end
+    end
+    
+    // All addresses read 0.
+    assign data_out = 32'b0;
 
     // All reads complete in 1 clock
     assign data_ready = 1;
