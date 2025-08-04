@@ -12,6 +12,47 @@ from tqv import TinyQV
 # The peripheral number is not used by the test harness.
 PERIPHERAL_NUM = 0
 
+class Device:
+    def __init__(self, tqv):
+        self.tqv = tqv
+
+        self.config_start = 0
+        self.config_loop = 0
+        self.config_interrupt = 0
+        self.config_program_start_count = 0
+        self.config_program_end_count = 15
+        self.config_main_prescaler = 2
+        self.config_auxillary_prescaler = 1
+
+        self.config_carrier_start_count = 3 
+
+        self.config_main_low_duration_a = 50
+        self.config_main_low_duration_b = 100
+        self.config_main_high_duration_a = 75
+        self.config_main_high_duration_b = 150
+
+        self.config_auxillary_low_duration_a = 33
+        self.config_auxillary_low_duration_b = 66
+        self.config_auxillary_high_duration_a = 77
+        self.config_auxillary_high_duration_b = 144
+
+        self.config_carrier_start_count = 3 
+
+    async def write_reg_0(self):
+        reg0 = (self.config_auxillary_prescaler << 22) | (self.config_main_prescaler << 18) | (self.config_program_end_count << 11) | (self.config_program_start_count << 4) | (self.config_interrupt << 2) | (self.config_loop << 1) | self.config_start
+        await self.tqv.write_word_reg(0, reg0)
+
+    async def write_reg_1(self):
+        await self.tqv.write_word_reg(1, self.config_carrier_start_count)
+
+    async def write_reg_2(self):
+        reg2 = (self.config_main_high_duration_b << 24) | (self.config_main_high_duration_a << 16) | (self.config_main_low_duration_b << 8) | self.config_main_low_duration_a
+        await self.tqv.write_word_reg(2, reg2)
+    
+    async def write_reg_3(self):
+        reg3 = (self.config_auxillary_high_duration_b << 24) | (self.config_auxillary_high_duration_a << 16) | (self.config_auxillary_low_duration_b << 8) | self.config_auxillary_low_duration_a
+        await self.tqv.write_word_reg(3, reg3)
+    
 @cocotb.test()
 async def test_project(dut):
     dut._log.info("Start")
@@ -32,12 +73,18 @@ async def test_project(dut):
 
     dut._log.info("Test project behavior")
 
-    config_carrier_start_count = 3
-    config_main_prescaler = 2
-    config_auxillary_prescaler = 0
+    device = Device(tqv)
+    # Configure the pulse transmitter
+    await device.write_reg_0()
+    await device.write_reg_1()
+    await device.write_reg_2()
+    await device.write_reg_3()
 
-    await tqv.write_word_reg(0, (config_auxillary_prescaler << 12) | (config_main_prescaler << 8))
-    await tqv.write_word_reg(1, config_carrier_start_count)
+    await ClockCycles(dut.clk, 100)
+
+    # Start the pulse transmitter
+    device.config_start = 1
+    await device.write_reg_0()
 
     #assert await tqv.read_byte_reg(0) == 0x78
     #assert await tqv.read_hword_reg(0) == 0x5678

@@ -8,7 +8,7 @@
 // Change the name of this module to something that reflects its functionality and includes your name for uniqueness
 // For example tqvp_yourname_spi for an SPI peripheral.
 // Then edit tt_wrapper.v line 41 and change tqvp_example to your chosen module name.
-module tqvp_hx2003_pulse_transmitter (
+module tqvp_hx2003_pulse_transmitter ( 
     input         clk,          // Clock - the TinyQV project clock is normally set to 64MHz.
     input         rst_n,        // Reset_n - low to reset.
 
@@ -31,17 +31,51 @@ module tqvp_hx2003_pulse_transmitter (
     output        user_interrupt  // Dedicated interrupt request for this peripheral
 );
 
+    // Fixed parameters
+    localparam NUM_DATA_REG = 5; // NUM_DATA_REG must be <= 8
+
+    // Calculated parameters
+    localparam DATA_REG_ADDR_NUM_BITS = $clog2(NUM_DATA_REG);
+
     // The various configuration registers
     reg [31:0] reg_0;
-    wire [3:0] config_main_prescaler = reg_0[11:8];
-    wire [3:0] config_auxillary_prescaler = reg_0[15:12];
+    wire config_start = reg_0[0];
+    wire config_loop = reg_0[1];
+    wire [1:0] config_interrupt = reg_0[3:2];
+    wire [7:0] config_program_start_count = reg_0[10:4];
+    wire [7:0] config_program_end_count = reg_0[17:11];
+
+    wire [3:0] config_main_prescaler = reg_0[21:18];
+    wire [3:0] config_auxillary_prescaler = reg_0[25:22];
 
     reg [31:0] reg_1;
     wire [15:0] config_carrier_start_count = reg_1[15:0];
-    //wire [7:0] byte2 = reg_1[23:16];
-    //wire [7:0] byte3 = reg_1[31:24]; 
 
+    reg [31:0] reg_2;
+    wire [7:0] config_main_low_duration_a = reg_2[7:0];
+    wire [7:0] config_main_low_duration_b = reg_2[15:7];
+    wire [7:0] config_main_high_duration_a = reg_2[23:16];
+    wire [7:0] config_main_high_duration_b = reg_2[31:24];
+
+    reg [31:0] reg_3;
+    wire [7:0] config_auxillary_low_duration_a = reg_3[7:0];
+    wire [7:0] config_auxillary_low_duration_b = reg_3[15:7];
+    wire [7:0] config_auxillary_high_duration_a = reg_3[23:16];
+    wire [7:0] config_auxillary_high_duration_b = reg_3[31:24];
+
+    // The rest of our code
+    wire start_pulse;
+
+    rising_edge_detector config_start_rising_edge_detector(
+        .clk(clk),
+        .rstb(rst_n),
+        .ena(1'b1),
+        .data(config_start),
+        .pos_edge(start_pulse)
+    );
     
+    reg [31:0] DATA_MEM[NUM_DATA_REG - 1:0];
+
     // Implement a 32-bit register writes
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -50,16 +84,58 @@ module tqvp_hx2003_pulse_transmitter (
             reg_1 <= 0;
         end else begin
             if (data_write_n == 2'b10) begin
-                if (address == 6'd0) begin
-                    reg_0 <= data_in[31:0];
-                end else if (address == 6'd1) begin
-                    reg_1 <= data_in[31:0];
+                if (address[5] == 1'b0) begin
+                    if (address == 6'd0) begin
+                        reg_0 <= data_in[31:0];
+                    end else if (address == 6'd1) begin
+                        reg_1 <= data_in[31:0];
+                    end
+                end else begin
+                    // map the lower bits to our DATA_MEM
+                    DATA_MEM[address[DATA_REG_ADDR_NUM_BITS:0]] <= address[DATA_REG_ADDR_NUM_BITS:0];
                 end
             end
         end 
     end
 
+    reg program_counter_increment_strobe;
+
     // Other stuff
+    reg [7:0] program_counter;
+    always @(posedge clk) begin
+        if (!rst_n || !config_start) begin
+            program_counter <= 0;
+            program_counter_increment_strobe <= 0;
+        end else begin
+            if(program_counter_increment_strobe == 1'b1) begin
+                if (program_counter == config_program_end_count) begin
+                    // Set the program counter
+                    program_counter <= config_program_start_count;
+                end else begin
+                    program_counter <= program_counter + 1;
+                end
+            end
+        end
+    end
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+        end else begin
+            program_counter_increment_strobe <= 1;
+        end
+    end
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+        end else begin
+            if (start_pulse == 1'b1) begin
+
+            end
+        end
+    end
+
+     
+
     reg [15:0] carrier_counter;
     reg carrier_output;
     
@@ -71,31 +147,41 @@ module tqvp_hx2003_pulse_transmitter (
     assign uo_out[7:4] = 0;
 
     always @(posedge clk) begin
-        if (!rst_n) begin
+        if (!rst_n || !config_start) begin
             carrier_counter <= 0;
             carrier_output <= 0;
         end else begin
             if (carrier_counter == 16'b0) begin
                 carrier_counter <= config_carrier_start_count;
-                carrier_output <= ~carrier_output;
+                carrier_output <= !carrier_output;
             end else begin
                 carrier_counter <= carrier_counter - 1;
             end
         end
     end
     
-    wire [15:0] main_prescaler_start_count = (1 << config_main_prescaler) - 1;
-    reg [15:0] main_prescaler_counter;
+    localparam PRESCALER_COUNTER_WIDTH = 16;
+
+    wire [(PRESCALER_COUNTER_WIDTH - 1):0] main_prescaler_start_count = (1 << config_main_prescaler) - 1;
+    reg [PRESCALER_COUNTER_WIDTH:0] main_prescaler_counter; // give an extra bit for the rollover
+    wire main_prescaler_reset_trigger;
     reg main_prescaler_output;
- 
+    
+    
+    assign main_prescaler_reset_trigger = start_pulse;
+    
     always @(posedge clk) begin
-        if (!rst_n) begin
-            main_prescaler_counter <= 0;
+        if (!rst_n || !config_start) begin
+            main_prescaler_counter <= main_prescaler_start_count;
             main_prescaler_output <= 0;
         end else begin
-            if (main_prescaler_counter == 16'b0) begin
-                main_prescaler_counter <= main_prescaler_start_count;
-                main_prescaler_output <= ~main_prescaler_output;
+            if ((main_prescaler_counter[PRESCALER_COUNTER_WIDTH] == 1'b1) || (main_prescaler_reset_trigger == 1'b1)) begin
+                main_prescaler_counter <= main_prescaler_start_count - 1;
+                if (main_prescaler_reset_trigger == 1'b1) begin
+                    main_prescaler_output <= 1'b0;
+                end else begin
+                    main_prescaler_output <= !main_prescaler_output;
+                end
             end else begin
                 main_prescaler_counter <= main_prescaler_counter - 1;
             end
@@ -107,13 +193,13 @@ module tqvp_hx2003_pulse_transmitter (
     reg auxillary_prescaler_output;
  
     always @(posedge clk) begin
-        if (!rst_n) begin
+        if (!rst_n || !config_start) begin
             auxillary_prescaler_counter <= 0;
             auxillary_prescaler_output <= 0;
         end else begin
             if (auxillary_prescaler_counter == 16'b0) begin
                 auxillary_prescaler_counter <= auxillary_prescaler_start_count;
-                auxillary_prescaler_output <= ~auxillary_prescaler_output;
+                auxillary_prescaler_output <= !auxillary_prescaler_output;
             end else begin
                 auxillary_prescaler_counter <= auxillary_prescaler_counter - 1;
             end
