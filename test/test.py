@@ -32,8 +32,13 @@ async def test_project(dut):
 
     dut._log.info("Test project behavior")
 
-    # Test register write and read back
-    await tqv.write_word_reg(0, 0x82345678)
+    config_carrier_start_count = 3
+    config_main_prescaler = 2
+    config_auxillary_prescaler = 0
+
+    await tqv.write_word_reg(0, (config_auxillary_prescaler << 12) | (config_main_prescaler << 8))
+    await tqv.write_word_reg(1, config_carrier_start_count)
+
     #assert await tqv.read_byte_reg(0) == 0x78
     #assert await tqv.read_hword_reg(0) == 0x5678
     #assert await tqv.read_word_reg(0) == 0x82345678

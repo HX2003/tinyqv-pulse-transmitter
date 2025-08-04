@@ -33,11 +33,13 @@ module tqvp_hx2003_pulse_transmitter (
 
     // The various configuration registers
     reg [31:0] reg_0;
-    reg [31:0] reg_1;
+    wire [3:0] config_main_prescaler = reg_0[11:8];
+    wire [3:0] config_auxillary_prescaler = reg_0[15:12];
 
+    reg [31:0] reg_1;
     wire [15:0] config_carrier_start_count = reg_1[15:0];
-    wire [7:0] byte2 = reg_1[23:16];
-    wire [7:0] byte3 = reg_1[31:24]; 
+    //wire [7:0] byte2 = reg_1[23:16];
+    //wire [7:0] byte3 = reg_1[31:24]; 
 
     
     // Implement a 32-bit register writes
@@ -47,10 +49,12 @@ module tqvp_hx2003_pulse_transmitter (
             reg_0 <= 0;
             reg_1 <= 0;
         end else begin
-            if (address == 6'd0) begin
-                reg_0 <= data_in[31:0];
-            end else if (address == 6'd1) begin
-                reg_1 <= data_in[31:0];
+            if (data_write_n == 2'b10) begin
+                if (address == 6'd0) begin
+                    reg_0 <= data_in[31:0];
+                end else if (address == 6'd1) begin
+                    reg_1 <= data_in[31:0];
+                end
             end
         end 
     end
@@ -59,22 +63,63 @@ module tqvp_hx2003_pulse_transmitter (
     reg [15:0] carrier_counter;
     reg carrier_output;
     
-    assign uo_out[6:0] = 0;
-    assign uo_out[7] = carrier_output;
+    assign uo_out[0] = 0;
+    assign uo_out[1] = carrier_output;
+    assign uo_out[2] = main_prescaler_output;
+    assign uo_out[3] = auxillary_prescaler_output;
+
+    assign uo_out[6:4] = 0;
 
     always @(posedge clk) begin
         if (!rst_n) begin
             carrier_counter <= 0;
             carrier_output <= 0;
         end else begin
-            carrier_counter <= carrier_counter - 1;
             if (carrier_counter == 16'b0) begin
                 carrier_counter <= config_carrier_start_count;
                 carrier_output <= ~carrier_output;
-            end 
+            end else begin
+                carrier_counter <= carrier_counter - 1;
+            end
         end
     end
     
+    wire [15:0] main_prescaler_start_count = (1 << config_main_prescaler) - 1;
+    reg [15:0] main_prescaler_counter;
+    reg main_prescaler_output;
+ 
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            main_prescaler_counter <= 0;
+            main_prescaler_output <= 0;
+        end else begin
+            if (main_prescaler_counter == 16'b0) begin
+                main_prescaler_counter <= main_prescaler_start_count;
+                main_prescaler_output <= ~main_prescaler_output;
+            end else begin
+                main_prescaler_counter <= main_prescaler_counter - 1;
+            end
+        end
+    end 
+
+    wire [15:0] auxillary_prescaler_start_count = (1 << config_auxillary_prescaler) - 1;
+    reg [15:0] auxillary_prescaler_counter;
+    reg auxillary_prescaler_output;
+ 
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            auxillary_prescaler_counter <= 0;
+            auxillary_prescaler_output <= 0;
+        end else begin
+            if (auxillary_prescaler_counter == 16'b0) begin
+                auxillary_prescaler_counter <= auxillary_prescaler_start_count;
+                auxillary_prescaler_output <= ~auxillary_prescaler_output;
+            end else begin
+                auxillary_prescaler_counter <= auxillary_prescaler_counter - 1;
+            end
+        end
+    end 
+
     // All addresses read 0.
     assign data_out = 32'b0;
 
