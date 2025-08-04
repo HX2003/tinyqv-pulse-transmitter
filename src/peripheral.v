@@ -101,7 +101,7 @@ module tqvp_hx2003_pulse_transmitter (
     reg program_counter_increment_strobe;
 
     // Other stuff
-    reg [7:0] program_counter;
+    reg [6:0] program_counter;
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
             program_counter <= 0;
