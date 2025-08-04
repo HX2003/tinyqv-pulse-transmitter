@@ -68,7 +68,7 @@ module tqvp_hx2003_pulse_transmitter (
     assign uo_out[2] = main_prescaler_output;
     assign uo_out[3] = auxillary_prescaler_output;
 
-    assign uo_out[6:4] = 0;
+    assign uo_out[7:4] = 0;
 
     always @(posedge clk) begin
         if (!rst_n) begin
