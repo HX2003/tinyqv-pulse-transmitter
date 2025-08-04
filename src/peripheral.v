@@ -85,11 +85,12 @@ module tqvp_hx2003_pulse_transmitter (
         end else begin
             if (data_write_n == 2'b10) begin
                 if (address[5] == 1'b0) begin
-                    if (address == 6'd0) begin
-                        reg_0 <= data_in[31:0];
-                    end else if (address == 6'd1) begin
-                        reg_1 <= data_in[31:0];
-                    end
+                    case (address[1:0])
+                        2'd0: reg_0 <= data_in[31:0];
+                        2'd1: reg_1 <= data_in[31:0];
+                        2'd2: reg_2 <= data_in[31:0];
+                        2'd3: reg_3 <= data_in[31:0];
+                    endcase
                 end else begin
                     // map the lower bits to our DATA_MEM
                     DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1):0]] <= data_in[31:0];
