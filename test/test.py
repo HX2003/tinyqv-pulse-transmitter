@@ -21,15 +21,15 @@ class Device:
         self.config_interrupt = 0
         self.config_program_start_count = 0
         self.config_program_end_count = 15
-        self.config_main_prescaler = 2
-        self.config_auxillary_prescaler = 1
+        self.config_main_prescaler = 0
+        self.config_auxillary_prescaler = 3
 
         self.config_carrier_start_count = 3 
 
-        self.config_main_low_duration_a = 50
-        self.config_main_low_duration_b = 100
-        self.config_main_high_duration_a = 75
-        self.config_main_high_duration_b = 150
+        self.config_main_low_duration_a = 0
+        self.config_main_low_duration_b = 0
+        self.config_main_high_duration_a = 1
+        self.config_main_high_duration_b = 0
 
         self.config_auxillary_low_duration_a = 33
         self.config_auxillary_low_duration_b = 66
@@ -52,6 +52,9 @@ class Device:
     async def write_reg_3(self):
         reg3 = (self.config_auxillary_high_duration_b << 24) | (self.config_auxillary_high_duration_a << 16) | (self.config_auxillary_low_duration_b << 8) | self.config_auxillary_low_duration_a
         await self.tqv.write_word_reg(3, reg3)
+
+    async def write_reg_data(self, addr, data):
+        await self.tqv.write_word_reg(addr, data)
     
 @cocotb.test()
 async def test_project(dut):
@@ -79,6 +82,8 @@ async def test_project(dut):
     await device.write_reg_1()
     await device.write_reg_2()
     await device.write_reg_3()
+
+    await device.write_reg_data(0b100000, 0b0010001000100010001000100010001000100010)
 
     await ClockCycles(dut.clk, 100)
 

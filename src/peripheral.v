@@ -82,6 +82,8 @@ module tqvp_hx2003_pulse_transmitter (
             // Reset the registers to its defaults
             reg_0 <= 0;
             reg_1 <= 0;
+            reg_2 <= 0;
+            reg_3 <= 0;
         end else begin
             if (data_write_n == 2'b10) begin
                 if (address[5] == 1'b0) begin
@@ -99,53 +101,15 @@ module tqvp_hx2003_pulse_transmitter (
         end 
     end
 
-    reg program_counter_increment_strobe;
-
     // Other stuff
-    reg [6:0] program_counter;
-    always @(posedge clk) begin
-        if (!rst_n || !config_start) begin
-            program_counter <= 0;
-            program_counter_increment_strobe <= 0;
-        end else begin
-            if(program_counter_increment_strobe == 1'b1) begin
-                if (program_counter == config_program_end_count) begin
-                    // Set the program counter
-                    program_counter <= config_program_start_count;
-                end else begin
-                    program_counter <= program_counter + 1;
-                end
-            end
-        end
-    end
-
-    always @(posedge clk) begin
-        if (!rst_n) begin
-        end else begin
-            program_counter_increment_strobe <= 1;
-        end
-    end
-
-    always @(posedge clk) begin
-        if (!rst_n) begin
-        end else begin
-            if (start_pulse == 1'b1) begin
-                    
-            end
-        end
-    end
-
-     
-
     reg [15:0] carrier_counter;
     reg carrier_output;
     
     assign uo_out[0] = 0;
     assign uo_out[1] = carrier_output;
-    assign uo_out[2] = main_prescaler_output;
-    assign uo_out[3] = auxillary_prescaler_output;
+    assign uo_out[2] = prescaler_output;
 
-    assign uo_out[7:4] = 0;
+    assign uo_out[7:3] = 0;
 
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
@@ -161,25 +125,113 @@ module tqvp_hx2003_pulse_transmitter (
         end
     end
     
-    reg main_prescaler_output;
+    reg prescaler_output;
 
-    prescaler_timer main_prescaler_timer(
+    prescaler_timer prescaler_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
-        .tim_rst_n(start_pulse),
+        .tim_rst(start_pulse),
         .prescaler(config_main_prescaler),
-        .out(main_prescaler_output)
+        .out(prescaler_output)
     );
 
-    reg auxillary_prescaler_output;
+    wire oneshot_timer_pulse_out;
 
-    prescaler_timer auxillary_prescaler_timer(
+    reg program_started_pulse;
+
+    wire oneshot_timer_trigger;
+    assign oneshot_timer_trigger = program_started_pulse || oneshot_timer_pulse_out;
+    reg [7:0] oneshot_timer_duration;
+    value_timer test_value_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
-        .tim_rst_n(start_pulse),
-        .prescaler(config_auxillary_prescaler),
-        .out(auxillary_prescaler_output)
+        .tim_trig(oneshot_timer_trigger),
+        .duration(oneshot_timer_duration),
+        .pulse_out(oneshot_timer_pulse_out)
     );
+
+
+    reg [31:0] data_32;
+    reg [1:0] data_2;
+
+    always @(*) begin
+        data_32 = DATA_MEM[program_counter[6:4]];
+
+        // Extract 2-bit chunk based on sel
+        case (program_counter[3:0])
+            4'd0:  data_2 = data_32[1:0];
+            4'd1:  data_2 = data_32[3:2];
+            4'd2:  data_2 = data_32[5:4];
+            4'd3:  data_2 = data_32[7:6];
+            4'd4:  data_2 = data_32[9:8];
+            4'd5:  data_2 = data_32[11:10];
+            4'd6:  data_2 = data_32[13:12];
+            4'd7:  data_2 = data_32[15:14];
+            4'd8:  data_2 = data_32[17:16];
+            4'd9:  data_2 = data_32[19:18];
+            4'd10: data_2 = data_32[21:20];
+            4'd11: data_2 = data_32[23:22];
+            4'd12: data_2 = data_32[25:24];
+            4'd13: data_2 = data_32[27:26];
+            4'd14: data_2 = data_32[29:28];
+            4'd15: data_2 = data_32[31:30];
+        endcase
+
+        // Use data_2 to select final output
+        case (data_2)
+            2'd0: oneshot_timer_duration = config_main_low_duration_a;
+            2'd1: oneshot_timer_duration = config_main_low_duration_b;
+            2'd2: oneshot_timer_duration = config_main_high_duration_a;
+            2'd3: oneshot_timer_duration = config_main_high_duration_b;
+        endcase
+    end
+ 
+
+ 
+    reg [6:0] program_counter;
+    always @(posedge clk) begin
+        if (!rst_n || !config_start) begin
+            program_started_pulse <= 0;
+            program_counter <= 0;
+        end else begin
+            if(start_pulse) begin
+                program_started_pulse <= 1;
+            end else begin
+                program_started_pulse <= 0;
+            end
+
+            if(start_pulse || oneshot_timer_trigger) begin
+                 
+                    
+                if (program_counter == config_program_end_count) begin
+                    // Set the program counter
+                    program_counter <= config_program_start_count;
+                end else begin
+                    program_counter <= program_counter + 1;
+                    
+                    // Main logic
+                end
+            end
+        end
+    end
+
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+        end else begin
+            
+        end
+    end
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+        end else begin
+            if (start_pulse == 1'b1) begin
+                    
+            end
+        end
+    end
+
 
     // All addresses read 0.
     assign data_out = 32'b0;
