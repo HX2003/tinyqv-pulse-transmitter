@@ -4,7 +4,7 @@ module pulse_transmitter_rising_edge_detector (
     input clk,           
     input rst_n,            
     input sig_in,
-    output reg pulse_out
+    output pulse_out
 );          
 
     reg sig_delayed;
