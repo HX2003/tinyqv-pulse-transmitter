@@ -43,15 +43,17 @@ module tqvp_hx2003_pulse_transmitter (
     wire config_loop = reg_0[1];
     wire config_idle_level = reg_0[2];
     wire config_invert_output = reg_0[3];
-    wire [1:0] config_interrupt = reg_0[5:4];
-    wire [6:0] config_program_start_count = reg_0[12:6];
-    wire [6:0] config_program_end_count = reg_0[19:13];
+    wire config_carrier_en = reg_0[4];
+    wire [1:0] config_interrupt = reg_0[6:5];
+    wire [6:0] config_program_start_count = reg_0[13:7];
+    wire [6:0] config_program_end_count = reg_0[20:14];
 
-    wire [3:0] config_main_prescaler = reg_0[23:20];
-    wire [3:0] config_auxillary_prescaler = reg_0[27:24];
+    wire [3:0] config_main_prescaler = reg_0[24:21];
+    wire [3:0] config_auxillary_prescaler = reg_0[28:25];
 
     reg [31:0] reg_1;
     wire [15:0] config_carrier_start_count = reg_1[15:0];
+    wire [7:0] config_auxillary_mask = reg_1[23:6];
 
     reg [31:0] reg_2;
     wire [7:0] config_main_low_duration_a = reg_2[7:0];
@@ -130,8 +132,6 @@ module tqvp_hx2003_pulse_transmitter (
     end
 
     wire oneshot_timer_pulse;
-
-    reg program_started_pulse;
 
     wire oneshot_timer_trigger;
     assign oneshot_timer_trigger = start_pulse_delayed_2 || oneshot_timer_pulse;
