@@ -47,13 +47,17 @@ module tqvp_hx2003_pulse_transmitter (
     wire [1:0] config_interrupt = reg_0[6:5];
     wire [6:0] config_program_loopback_count = reg_0[13:7];
     wire [6:0] config_program_end_count = reg_0[20:14];
-
     wire [3:0] config_main_prescaler = reg_0[24:21];
     wire [3:0] config_auxillary_prescaler = reg_0[28:25];
+    wire [2:0] unused_reg0 = reg_0[31:29];
+    wire _unused_reg0 = &{unused_reg0, 1'b0};
 
+    wire _config_invert_output_un = &{config_interrupt, 1'b0};
     reg [31:0] reg_1;
     wire [15:0] config_carrier_start_count = reg_1[15:0];
     wire [7:0] config_auxillary_mask = reg_1[23:16];
+    wire [15:0] unused_reg1 = reg_1[31:24];
+    wire _unused_reg1 = &{unused_reg1, 1'b0};
 
     reg [31:0] reg_2;
     wire [7:0] config_main_low_duration_a = reg_2[7:0];
