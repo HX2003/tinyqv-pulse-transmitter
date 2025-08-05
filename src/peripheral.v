@@ -41,12 +41,14 @@ module tqvp_hx2003_pulse_transmitter (
     reg [31:0] reg_0;
     wire config_start = reg_0[0];
     wire config_loop = reg_0[1];
-    wire [1:0] config_interrupt = reg_0[3:2];
-    wire [6:0] config_program_start_count = reg_0[10:4];
-    wire [6:0] config_program_end_count = reg_0[17:11];
+    wire config_idle_level = reg_0[2];
+    wire config_invert_output = reg_0[3];
+    wire [1:0] config_interrupt = reg_0[5:4];
+    wire [6:0] config_program_start_count = reg_0[12:6];
+    wire [6:0] config_program_end_count = reg_0[19:13];
 
-    wire [3:0] config_main_prescaler = reg_0[21:18];
-    wire [3:0] config_auxillary_prescaler = reg_0[25:22];
+    wire [3:0] config_main_prescaler = reg_0[23:20];
+    wire [3:0] config_auxillary_prescaler = reg_0[27:24];
 
     reg [31:0] reg_1;
     wire [15:0] config_carrier_start_count = reg_1[15:0];
@@ -107,7 +109,11 @@ module tqvp_hx2003_pulse_transmitter (
     assign uo_out[0] = 0;
     assign uo_out[1] = carrier_output;
 
-    assign uo_out[7:2] = 0;
+    wire v = (valid_output) ? transmit_level : config_idle_level;
+    wire uo_out_2 = v ^ config_invert_output;
+    assign uo_out[2] = uo_out_2;
+
+    assign uo_out[7:3] = 0;
 
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
@@ -122,76 +128,125 @@ module tqvp_hx2003_pulse_transmitter (
             end
         end
     end
-    
-    wire oneshot_timer_pulse_out;
+
+    wire oneshot_timer_pulse;
 
     reg program_started_pulse;
 
     wire oneshot_timer_trigger;
-    assign oneshot_timer_trigger = program_started_pulse || oneshot_timer_pulse_out;
-    reg [7:0] oneshot_timer_duration;
+    assign oneshot_timer_trigger = start_pulse_delayed_1 || oneshot_timer_pulse;
+    reg [7:0] prefetched_oneshot_timer_duration;
     pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
         .tim_trig(oneshot_timer_trigger),
         .prescaler(config_main_prescaler),
-        .duration(oneshot_timer_duration),
-        .pulse_out(oneshot_timer_pulse_out)
+        .duration(prefetched_oneshot_timer_duration),
+        .pulse_out(oneshot_timer_pulse)
     );
-
+    
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            transmit_level <= 0;
+            prefetched_transmit_level <= 0;
+        end else begin
+            if(oneshot_timer_trigger) begin
+                // save the transmit_level
+                transmit_level <= prefetched_transmit_level;
+            end
+        end
+    end
 
     reg [31:0] data_32;
-    reg [1:0] data_2;
+    reg [1:0] symbol_data;
 
+    // Combinatorics, multiplexer to obtain 2 bit symbol_data based on program_counter
     always @(*) begin
         data_32 = DATA_MEM[program_counter[6:4]];
 
         // Extract 2-bit chunk based on sel
         case (program_counter[3:0])
-            4'd0:  data_2 = data_32[1:0];
-            4'd1:  data_2 = data_32[3:2];
-            4'd2:  data_2 = data_32[5:4];
-            4'd3:  data_2 = data_32[7:6];
-            4'd4:  data_2 = data_32[9:8];
-            4'd5:  data_2 = data_32[11:10];
-            4'd6:  data_2 = data_32[13:12];
-            4'd7:  data_2 = data_32[15:14];
-            4'd8:  data_2 = data_32[17:16];
-            4'd9:  data_2 = data_32[19:18];
-            4'd10: data_2 = data_32[21:20];
-            4'd11: data_2 = data_32[23:22];
-            4'd12: data_2 = data_32[25:24];
-            4'd13: data_2 = data_32[27:26];
-            4'd14: data_2 = data_32[29:28];
-            4'd15: data_2 = data_32[31:30];
-        endcase
-
-        // Use data_2 to select final output
-        case (data_2)
-            2'd0: oneshot_timer_duration = config_main_low_duration_a;
-            2'd1: oneshot_timer_duration = config_main_low_duration_b;
-            2'd2: oneshot_timer_duration = config_main_high_duration_a;
-            2'd3: oneshot_timer_duration = config_main_high_duration_b;
+            4'd0:  symbol_data = data_32[1:0];
+            4'd1:  symbol_data = data_32[3:2];
+            4'd2:  symbol_data = data_32[5:4];
+            4'd3:  symbol_data = data_32[7:6];
+            4'd4:  symbol_data = data_32[9:8];
+            4'd5:  symbol_data = data_32[11:10];
+            4'd6:  symbol_data = data_32[13:12];
+            4'd7:  symbol_data = data_32[15:14];
+            4'd8:  symbol_data = data_32[17:16];
+            4'd9:  symbol_data = data_32[19:18];
+            4'd10: symbol_data = data_32[21:20];
+            4'd11: symbol_data = data_32[23:22];
+            4'd12: symbol_data = data_32[25:24];
+            4'd13: symbol_data = data_32[27:26];
+            4'd14: symbol_data = data_32[29:28];
+            4'd15: symbol_data = data_32[31:30];
         endcase
     end
- 
+    
+    reg prefetched_transmit_level;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            prefetched_transmit_level <= 0;
+            prefetched_oneshot_timer_duration <= 0;
+        end else begin
+            if(program_fetch_symbol) begin
+                // fetch the pulse information, and store it
+                prefetched_transmit_level <= symbol_data[1];
 
+                case (symbol_data)
+                    2'd0: prefetched_oneshot_timer_duration <= config_main_low_duration_a;
+                    2'd1: prefetched_oneshot_timer_duration <= config_main_low_duration_b;
+                    2'd2: prefetched_oneshot_timer_duration <= config_main_high_duration_a;
+                    2'd3: prefetched_oneshot_timer_duration <= config_main_high_duration_b;
+                endcase
+            end
+        end
+    end
  
+    reg transmit_level;
+
+    reg valid_output;
+
+    // We should fetch the pulse information for the symbol:
+    // once for start_pulse (the first symbol)
+    // once for start_pulse_delayed_1 (prefetch the next symbol)
+    // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
+    wire program_fetch_symbol = start_pulse || oneshot_timer_trigger;
+    
+    // The program counter should increment:
+    // once for start_pulse (to increment so that we can prefetch the next symbol)
+    // once for start_pulse_delayed_1 (so that )
+    // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
+    wire program_counter_increment_trigger = start_pulse || oneshot_timer_trigger;
+
+    reg start_pulse_delayed_1;
+    
     reg [6:0] program_counter;
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
-            program_started_pulse <= 0;
+            //program_started_pulse <= 0;
             program_counter <= 0;
+            valid_output <= 0;
+            start_pulse_delayed_1 <= 0;
         end else begin
-            if(start_pulse) begin
-                program_started_pulse <= 1;
-            end else begin
-                program_started_pulse <= 0;
+            start_pulse_delayed_1 <= start_pulse;
+
+            if (start_pulse_delayed_1) begin
+                // It takes 1 cycle to fetch the pulse information,
+                // so the initial output is not valid until 1 cycle later 
+                valid_output <= 1;
             end
 
-            if(start_pulse || oneshot_timer_trigger) begin
-                 
-                    
+            if(start_pulse) begin
+                
+                //program_started_pulse <= 1;
+            end else begin
+                //program_started_pulse <= 0;
+            end
+
+            if (program_counter_increment_trigger) begin
                 if (program_counter == config_program_end_count) begin
                     // Set the program counter
                     program_counter <= config_program_start_count;
@@ -205,6 +260,7 @@ module tqvp_hx2003_pulse_transmitter (
     end
 
 
+    // 
     always @(posedge clk) begin
         if (!rst_n) begin
         end else begin
@@ -214,6 +270,7 @@ module tqvp_hx2003_pulse_transmitter (
 
     always @(posedge clk) begin
         if (!rst_n) begin
+            transmit_level <= 0;
         end else begin
             if (start_pulse == 1'b1) begin
                     

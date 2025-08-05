@@ -18,6 +18,8 @@ class Device:
 
         self.config_start = 0
         self.config_loop = 0
+        self.config_idle_level = 0
+        self.config_invert_output = 0
         self.config_interrupt = 0
         self.config_program_start_count = 0
         self.config_program_end_count = 15
@@ -26,9 +28,9 @@ class Device:
 
         self.config_carrier_start_count = 3 
 
-        self.config_main_low_duration_a = 0
+        self.config_main_low_duration_a = 8
         self.config_main_low_duration_b = 0
-        self.config_main_high_duration_a = 1
+        self.config_main_high_duration_a = 0
         self.config_main_high_duration_b = 0
 
         self.config_auxillary_low_duration_a = 33
@@ -39,7 +41,7 @@ class Device:
         self.config_carrier_start_count = 3 
 
     async def write_reg_0(self):
-        reg0 = (self.config_auxillary_prescaler << 22) | (self.config_main_prescaler << 18) | (self.config_program_end_count << 11) | (self.config_program_start_count << 4) | (self.config_interrupt << 2) | (self.config_loop << 1) | self.config_start
+        reg0 = (self.config_auxillary_prescaler << 24) | (self.config_main_prescaler << 20) | (self.config_program_end_count << 13) | (self.config_program_start_count << 6) | (self.config_interrupt << 4) | (self.config_invert_output << 3) | (self.config_idle_level << 2) | (self.config_loop << 1) | self.config_start
         await self.tqv.write_word_reg(0, reg0)
 
     async def write_reg_1(self):
