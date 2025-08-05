@@ -33,7 +33,7 @@ module pulse_transmitter_countdown_timer #(
         .pulse_out(pulse_out)
     );
 
-    wire [(COUNTER_WIDTH - 1):0] counter_start = {1'b0, duration << prescaler}; // allow wrapping around
+    wire [(COUNTER_WIDTH - 1):0] counter_start = {1'b0, {{PRESCALER_WIDTH{1'b0}}, duration} << prescaler};
 
     reg out;
     reg [(COUNTER_WIDTH - 1):0] counter;

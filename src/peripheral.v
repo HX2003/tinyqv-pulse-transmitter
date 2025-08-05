@@ -317,6 +317,7 @@ module tqvp_hx2003_pulse_transmitter (
     // List all unused inputs to prevent warnings
     // data_read_n is unused as none of our behaviour depends on whether
     // registers are being read.
-    wire _unused = &{data_read_n, 1'b0};
+    wire _unused1 = &{data_read_n, 1'b0};
+    wire _unused2 = &{ui_in, 1'b0};
 
 endmodule

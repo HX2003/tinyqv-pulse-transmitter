@@ -28,10 +28,10 @@ class Device:
 
         self.config_carrier_start_count = 3 
 
-        self.config_main_low_duration_a = 0
-        self.config_main_low_duration_b = 0
+        self.config_main_low_duration_a = 1
+        self.config_main_low_duration_b = 3
         self.config_main_high_duration_a = 0
-        self.config_main_high_duration_b = 0
+        self.config_main_high_duration_b = 2
 
         self.config_auxillary_low_duration_a = 33
         self.config_auxillary_low_duration_b = 66
@@ -85,7 +85,7 @@ async def test_project(dut):
     await device.write_reg_2()
     await device.write_reg_3()
 
-    await device.write_reg_data(0b100000, 0b0010001000100010001000100010001000100010)
+    await device.write_reg_data(0b100000, 0b0111001001110010011100100111001001110010)
 
     await ClockCycles(dut.clk, 100)
 
