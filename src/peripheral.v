@@ -329,7 +329,7 @@ module tqvp_hx2003_pulse_transmitter (
     assign uo_out[1] = carrier_out;
     assign uo_out[2] = final_output;
     assign uo_out[3] = valid_output;
-    assign uo_out[7:3] = 0;
+    assign uo_out[7:4] = 0;
 
     // All addresses read 0.
     assign data_out = 32'b0;
