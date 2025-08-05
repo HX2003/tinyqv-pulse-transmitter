@@ -52,11 +52,12 @@ module tqvp_hx2003_pulse_transmitter (
     wire [2:0] unused_reg0 = reg_0[31:29];
     wire _unused_reg0 = &{unused_reg0, 1'b0};
 
-    wire _config_invert_output_un = &{config_interrupt, 1'b0};
+    wire _unused_config_invert_outputs = &{config_interrupt, 1'b0};
+
     reg [31:0] reg_1;
     wire [15:0] config_carrier_start_count = reg_1[15:0];
     wire [7:0] config_auxillary_mask = reg_1[23:16];
-    wire [15:0] unused_reg1 = reg_1[31:24];
+    wire [7:0] unused_reg1 = reg_1[31:24];
     wire _unused_reg1 = &{unused_reg1, 1'b0};
 
     reg [31:0] reg_2;
