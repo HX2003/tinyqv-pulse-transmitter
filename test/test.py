@@ -17,18 +17,18 @@ class Device:
         self.tqv = tqv
 
         self.config_start = 0
-        self.config_loop = 0
         self.config_idle_level = 0
         self.config_invert_output = 0
         self.config_carrier_en = 0
         self.config_interrupt = 0
-        self.config_program_loopback_count = 0
-        self.config_program_end_count = 4
+        self.config_program_loopback_index = 0
+        self.config_program_end_index = 4
+        self.config_program_loop_count = 0
+
+        self.config_carrier_duration = 3 
+        self.config_auxillary_mask = 0
         self.config_main_prescaler = 0
         self.config_auxillary_prescaler = 3
-
-        self.config_carrier_start_count = 3 
-        self.config_auxillary_mask = 0
          
         self.config_main_low_duration_a = 1
         self.config_main_low_duration_b = 3
@@ -40,14 +40,14 @@ class Device:
         self.config_auxillary_high_duration_a = 77
         self.config_auxillary_high_duration_b = 144
 
-        self.config_carrier_start_count = 3 
+        self.config_carrier_duration = 3 
 
     async def write_reg_0(self):
-        reg0 = (self.config_auxillary_prescaler << 25) | (self.config_main_prescaler << 21) | (self.config_program_end_count << 14) | (self.config_program_loopback_count << 7) | (self.config_interrupt << 5) | (self.config_carrier_en << 4) | (self.config_invert_output << 3) | (self.config_idle_level << 2) | (self.config_loop << 1) | self.config_start
+        reg0 = (self.config_program_loop_count << 21) | (self.config_program_end_index << 14) | (self.config_program_loopback_index << 7) | (self.config_interrupt << 4) | (self.config_carrier_en << 3) | (self.config_invert_output << 2) | (self.config_idle_level << 1) | self.config_start
         await self.tqv.write_word_reg(0, reg0)
 
     async def write_reg_1(self):
-        reg1 = (self.config_auxillary_mask) | self.config_carrier_start_count
+        reg1 =  (self.config_auxillary_prescaler << 28) | (self.config_main_prescaler << 24) | (self.config_auxillary_mask << 16) | self.config_carrier_duration
         await self.tqv.write_word_reg(1, reg1)
 
     async def write_reg_2(self):
@@ -96,6 +96,7 @@ async def test_project(dut):
     device.config_start = 1
     await device.write_reg_0()
 
+    await ClockCycles(dut.clk, 10000)
     #assert await tqv.read_byte_reg(0) == 0x78
     #assert await tqv.read_hword_reg(0) == 0x5678
     #assert await tqv.read_word_reg(0) == 0x82345678
@@ -121,7 +122,7 @@ async def test_project(dut):
     #await tqv.write_word_reg(0, 40)
     #assert dut.uo_out.value == 70
 
-    # Test the interrupt, generated when ui_in[6] goes high
+    """# Test the interrupt, generated when ui_in[6] goes high
     dut.ui_in[6].value = 1
     await ClockCycles(dut.clk, 1)
     dut.ui_in[6].value = 0
@@ -136,4 +137,4 @@ async def test_project(dut):
     
     # Write bottom bit of address 8 high to clear
     await tqv.write_byte_reg(8, 1)
-    assert not await tqv.is_interrupt_asserted()
+    assert not await tqv.is_interrupt_asserted()"""

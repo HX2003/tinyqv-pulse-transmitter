@@ -32,7 +32,7 @@ module tqvp_hx2003_pulse_transmitter (
 );
 
     // Fixed parameters
-    localparam NUM_DATA_REG = 8; // NUM_DATA_REG must be <= 8
+    localparam NUM_DATA_REG = 7; // NUM_DATA_REG must be <= 8
 
     // Calculated parameters
     localparam DATA_REG_ADDR_NUM_BITS = $clog2(NUM_DATA_REG);
@@ -40,25 +40,20 @@ module tqvp_hx2003_pulse_transmitter (
     // The various configuration registers
     reg [31:0] reg_0;
     wire config_start = reg_0[0];
-    wire config_loop = reg_0[1];
-    wire config_idle_level = reg_0[2];
-    wire config_invert_output = reg_0[3];
-    wire config_carrier_en = reg_0[4];
-    wire [1:0] config_interrupt = reg_0[6:5];
-    wire [6:0] config_program_loopback_count = reg_0[13:7];
-    wire [6:0] config_program_end_count = reg_0[20:14];
-    wire [3:0] config_main_prescaler = reg_0[24:21];
-    wire [3:0] config_auxillary_prescaler = reg_0[28:25];
-    wire [2:0] unused_reg0 = reg_0[31:29];
-    wire _unused_reg0 = &{unused_reg0, 1'b0};
-
-    wire _unused_config_interrupt = &{config_interrupt, 1'b0};
+    wire config_idle_level = reg_0[1];
+    wire config_invert_output = reg_0[2];
+    wire config_carrier_en = reg_0[3];
+    wire [2:0] config_interrupt = reg_0[6:4];
+    wire [6:0] config_program_loopback_index = reg_0[13:7];
+    wire [6:0] config_program_end_index = reg_0[20:14];
+    wire [7:0] config_program_loop_count = reg_0[28:21];
+    wire _unused_reg0 = &{reg_0[31:29], 1'b0};
 
     reg [31:0] reg_1;
-    wire [15:0] config_carrier_start_count = reg_1[15:0];
+    wire [15:0] config_carrier_duration = reg_1[15:0];
     wire [7:0] config_auxillary_mask = reg_1[23:16];
-    wire [7:0] unused_reg1 = reg_1[31:24];
-    wire _unused_reg1 = &{unused_reg1, 1'b0};
+    wire [3:0] config_main_prescaler = reg_1[27:24];
+    wire [3:0] config_auxillary_prescaler = reg_1[31:28];
 
     reg [31:0] reg_2;
     wire [7:0] config_main_low_duration_a = reg_2[7:0];
@@ -84,7 +79,7 @@ module tqvp_hx2003_pulse_transmitter (
     
     reg [31:0] DATA_MEM[NUM_DATA_REG - 1:0];
 
-    // Implement a 32-bit register writes
+    // Implement a 32-bit register writes for the config and data
     always @(posedge clk) begin
         if (!rst_n) begin
             // Reset the registers to its defaults
@@ -94,6 +89,7 @@ module tqvp_hx2003_pulse_transmitter (
             reg_3 <= 0;
         end else begin
             if (data_write_n == 2'b10) begin
+                // 32 bits write
                 if (address[5] == 1'b0) begin
                     case (address[1:0])
                         2'd0: reg_0 <= data_in[31:0];
@@ -109,18 +105,49 @@ module tqvp_hx2003_pulse_transmitter (
         end 
     end
 
+    assign user_interrupt = interrupt_register;
+    reg interrupt_register;
+    reg interrupt_triggered;
+
+    always @(*) begin
+        case (config_interrupt)
+            3'd0: interrupt_triggered = 0;
+            3'd1: interrupt_triggered = carrier_pulse_out;
+            3'd2: interrupt_triggered = timer_pulse_out;
+            3'd3: interrupt_triggered = 0;
+            3'd4: interrupt_triggered = 0;
+            3'd5: interrupt_triggered = 0;
+            3'd6: interrupt_triggered = 0;
+            3'd7: interrupt_triggered = 0;
+        endcase
+    end
+
+    // Interrupts
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            interrupt_register <= 0;
+        end else begin
+            if (interrupt_triggered) begin
+                interrupt_register <= 1;
+            end else if (data_write_n == 2'b00 && address == 6'd16 && data_in[0]) begin
+                // interrupts are cleared by cleared by writing a 1 to the low bit of address 16.
+                interrupt_register <= 0;
+            end
+        end
+    end
+
     // Other stuff
     reg [15:0] carrier_counter;
-    reg carrier_output;
+    reg carrier_out;
     
     assign uo_out[0] = 0;
-    assign uo_out[1] = carrier_output;
+    assign uo_out[1] = carrier_out;
 
     // Apply optional carrier
-    wire modulated_output = config_carrier_en ? (transmit_level && carrier_output): transmit_level;
+    wire modulated_output = config_carrier_en ? (transmit_level && carrier_out): transmit_level;
 
     // Insert idle level when not transmitting
-    wire active_or_idle_output  = (valid_output) ? modulated_output : config_idle_level;
+    wire active_or_idle_output = (valid_output) ? modulated_output : config_idle_level;
     
     // Apply optional inversion
     wire final_output = active_or_idle_output ^ config_invert_output;
@@ -128,24 +155,32 @@ module tqvp_hx2003_pulse_transmitter (
 
     assign uo_out[7:3] = 0;
 
+    wire carrier_pulse_out;
+    pulse_transmitter_rising_edge_detector carrier_out_rising_edge_detector(
+        .clk(clk),
+        .rst_n(rst_n),
+        .sig_in(carrier_out),
+        .pulse_out(carrier_pulse_out)
+    );
+
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
             carrier_counter <= 0;
-            carrier_output <= 0;
+            carrier_out <= 0;
         end else begin
             if (carrier_counter == 16'b0) begin
-                carrier_counter <= config_carrier_start_count;
-                carrier_output <= !carrier_output;
+                carrier_counter <= config_carrier_duration;
+                carrier_out <= !carrier_out;
             end else begin
                 carrier_counter <= carrier_counter - 1;
             end
         end
     end
 
-    wire oneshot_timer_pulse;
+    wire timer_pulse_out;
 
     wire oneshot_timer_trigger;
-    assign oneshot_timer_trigger = start_pulse_delayed_2 || oneshot_timer_pulse;
+    assign oneshot_timer_trigger = start_pulse_delayed_2 || timer_pulse_out;
     reg [7:0] prefetched_timer_duration;
     reg [3:0] prefetched_prescaler;
     pulse_transmitter_countdown_timer countdown_timer(
@@ -154,7 +189,7 @@ module tqvp_hx2003_pulse_transmitter (
         .en(timer_enabled),
         .prescaler(prefetched_prescaler),
         .duration(prefetched_timer_duration),
-        .pulse_out(oneshot_timer_pulse)
+        .pulse_out(timer_pulse_out)
     );
 
     reg [31:0] data_32;
@@ -238,17 +273,19 @@ module tqvp_hx2003_pulse_transmitter (
     // once for start_pulse_delayed_1 (we prefetch the next symbol and increment program_counter)
     // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
     wire program_counter_increment_trigger = start_pulse || oneshot_timer_trigger;
-
-    reg program_counter_reached_end;
+    
+    reg [6:0] program_counter;
+    reg [8:0] program_loop_counter; // add 1 more bit for the rollover detector
+    reg program_reached_end;
     reg start_pulse_delayed_1;
     reg start_pulse_delayed_2;
     reg timer_enabled;
-
-    reg [6:0] program_counter;
+     
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
+            program_loop_counter <= 0;
             timer_enabled <= 0;
-            program_counter_reached_end <= 0;
+            program_reached_end <= 0;
             program_counter <= 0;
             valid_output <= 0;
             start_pulse_delayed_1 <= 0;
@@ -256,6 +293,10 @@ module tqvp_hx2003_pulse_transmitter (
         end else begin
             start_pulse_delayed_1 <= start_pulse;
             start_pulse_delayed_2 <= start_pulse_delayed_1;
+
+            if (start_pulse) begin 
+                program_loop_counter <= {1'b0, config_program_loop_count} - 1;
+            end    
 
             if (start_pulse_delayed_1) begin
                 timer_enabled <= 1;
@@ -269,13 +310,14 @@ module tqvp_hx2003_pulse_transmitter (
             end
 
             if (program_counter_increment_trigger) begin
-                if (program_counter == config_program_end_count) begin
-                    if(config_loop) begin
-                        // Set the program counter
-                        program_counter <= config_program_loopback_count;
+                if (program_counter == config_program_end_index) begin
+                    if(program_loop_counter[8] == 1'b1) begin
+                        // Set program_reached_end, but do not disable output yet
+                        program_reached_end <= 1;
                     end else begin
-                        // Set program_counter_reached_end, but do not disable output yet
-                        program_counter_reached_end <= 1;
+                         // Set the program counter
+                        program_counter <= config_program_loopback_index;
+                        program_loop_counter <= program_loop_counter - 1;
                     end
                      
                 end else begin
@@ -283,17 +325,9 @@ module tqvp_hx2003_pulse_transmitter (
                 end
             end
 
-            if (oneshot_timer_trigger && program_counter_reached_end) begin
+            if (oneshot_timer_trigger && program_reached_end) begin
                 valid_output <= 0;
             end
-        end
-    end
-
-    // 
-    always @(posedge clk) begin
-        if (!rst_n) begin
-        end else begin
-            
         end
     end
 
@@ -302,27 +336,7 @@ module tqvp_hx2003_pulse_transmitter (
 
     // All reads complete in 1 clock
     assign data_ready = 1;
-    
-    // User interrupt is generated on rising edge of ui_in[6], and cleared by writing a 1 to the low bit of address 8.
-    reg example_interrupt;
-    reg last_ui_in_6;
-
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            example_interrupt <= 0;
-        end
-
-        if (ui_in[6] && !last_ui_in_6) begin
-            example_interrupt <= 1;
-        end else if (address == 6'h8 && data_write_n != 2'b11 && data_in[0]) begin
-            example_interrupt <= 0;
-        end
-
-        last_ui_in_6 <= ui_in[6];
-    end
-
-    assign user_interrupt = example_interrupt;
-
+ 
     // List all unused inputs to prevent warnings
     // data_read_n is unused as none of our behaviour depends on whether
     // registers are being read.
