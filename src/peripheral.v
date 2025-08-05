@@ -204,7 +204,7 @@ module tqvp_hx2003_pulse_transmitter (
                     2'd3: prefetched_timer_duration <= config_main_high_duration_b;
                 endcase
 
-                if (program_counter < 8 && config_auxillary_mask[program_counter]) begin
+                if (program_counter < 8 && config_auxillary_mask[program_counter[2:0]]) begin
                     prefetched_prescaler <= config_auxillary_prescaler;
                 end else begin
                     prefetched_prescaler <= config_main_prescaler;
