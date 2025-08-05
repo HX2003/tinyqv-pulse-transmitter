@@ -111,9 +111,15 @@ module tqvp_hx2003_pulse_transmitter (
     assign uo_out[0] = 0;
     assign uo_out[1] = carrier_output;
 
-    wire v = (valid_output) ? transmit_level : config_idle_level;
-    wire uo_out_2 = v ^ config_invert_output;
-    assign uo_out[2] = uo_out_2;
+    // Apply optional carrier
+    wire modulated_output = config_carrier_en ? (transmit_level && carrier_output): transmit_level;
+
+    // Insert idle level when not transmitting
+    wire active_or_idle_output  = (valid_output) ? modulated_output : config_idle_level;
+    
+    // Apply optional inversion
+    wire final_output = active_or_idle_output ^ config_invert_output;
+    assign uo_out[2] = final_output;
 
     assign uo_out[7:3] = 0;
 
@@ -186,6 +192,8 @@ module tqvp_hx2003_pulse_transmitter (
         endcase
     end
     
+    wire use_auxillary = program_counter < 8 && config_auxillary_mask[program_counter[2:0]];
+
     reg prefetched_transmit_level;
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -197,17 +205,22 @@ module tqvp_hx2003_pulse_transmitter (
                 // fetch the pulse information, and store it
                 prefetched_transmit_level <= symbol_data[1];
 
-                case (symbol_data)
-                    2'd0: prefetched_timer_duration <= config_main_low_duration_a;
-                    2'd1: prefetched_timer_duration <= config_main_low_duration_b;
-                    2'd2: prefetched_timer_duration <= config_main_high_duration_a;
-                    2'd3: prefetched_timer_duration <= config_main_high_duration_b;
-                endcase
-
-                if (program_counter < 8 && config_auxillary_mask[program_counter[2:0]]) begin
+                if (use_auxillary) begin
                     prefetched_prescaler <= config_auxillary_prescaler;
+                    case (symbol_data)
+                        2'd0: prefetched_timer_duration <= config_auxillary_low_duration_a;
+                        2'd1: prefetched_timer_duration <= config_auxillary_low_duration_b;
+                        2'd2: prefetched_timer_duration <= config_auxillary_high_duration_a;
+                        2'd3: prefetched_timer_duration <= config_auxillary_high_duration_b;
+                    endcase
                 end else begin
                     prefetched_prescaler <= config_main_prescaler;
+                    case (symbol_data)
+                        2'd0: prefetched_timer_duration <= config_main_low_duration_a;
+                        2'd1: prefetched_timer_duration <= config_main_low_duration_b;
+                        2'd2: prefetched_timer_duration <= config_main_high_duration_a;
+                        2'd3: prefetched_timer_duration <= config_main_high_duration_b;
+                    endcase
                 end
             end
         end
