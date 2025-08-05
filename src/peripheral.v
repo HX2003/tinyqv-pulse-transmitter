@@ -45,7 +45,7 @@ module tqvp_hx2003_pulse_transmitter (
     wire config_invert_output = reg_0[3];
     wire config_carrier_en = reg_0[4];
     wire [1:0] config_interrupt = reg_0[6:5];
-    wire [6:0] config_program_start_count = reg_0[13:7];
+    wire [6:0] config_program_loopback_count = reg_0[13:7];
     wire [6:0] config_program_end_count = reg_0[20:14];
 
     wire [3:0] config_main_prescaler = reg_0[24:21];
@@ -146,7 +146,7 @@ module tqvp_hx2003_pulse_transmitter (
     pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
-        .en(program_started_delayed_1),
+        .en(timer_enabled),
         .prescaler(prefetched_prescaler),
         .duration(prefetched_timer_duration),
         .pulse_out(oneshot_timer_pulse)
@@ -201,7 +201,7 @@ module tqvp_hx2003_pulse_transmitter (
             prefetched_timer_duration <= 0;
             prefetched_prescaler <= 0;
         end else begin
-            if(program_fetch_symbol) begin
+            if(program_counter_increment_trigger) begin
                 // fetch the pulse information, and store it
                 prefetched_transmit_level <= symbol_data[1];
 
@@ -230,28 +230,22 @@ module tqvp_hx2003_pulse_transmitter (
 
     reg valid_output;
 
-    // We should fetch the pulse information for the symbol:
-    // once for start_pulse (the first symbol)
-    // once for start_pulse_delayed_1 (prefetch the next symbol)
-    // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
-    wire program_fetch_symbol = start_pulse || oneshot_timer_trigger;
-    
     // The program counter should increment:
-    // once for start_pulse (to increment so that we can prefetch the next symbol)
-    // once for start_pulse_delayed_1 (so that )
+    // once for start_pulse (we fetch the current symbol and increment program_counter)
+    // once for start_pulse_delayed_1 (we prefetch the next symbol and increment program_counter)
     // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
     wire program_counter_increment_trigger = start_pulse || oneshot_timer_trigger;
 
+    reg program_counter_reached_end;
     reg start_pulse_delayed_1;
     reg start_pulse_delayed_2;
-    reg program_started;
-    reg program_started_delayed_1;
+    reg timer_enabled;
 
     reg [6:0] program_counter;
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
-            program_started <= 0;
-            program_started_delayed_1 <= 0;
+            timer_enabled <= 0;
+            program_counter_reached_end <= 0;
             program_counter <= 0;
             valid_output <= 0;
             start_pulse_delayed_1 <= 0;
@@ -261,9 +255,8 @@ module tqvp_hx2003_pulse_transmitter (
             start_pulse_delayed_2 <= start_pulse_delayed_1;
 
             if (start_pulse_delayed_1) begin
-                program_started_delayed_1 <= 1;
+                timer_enabled <= 1;
             end
-
 
             if (start_pulse_delayed_2) begin
                 // It takes 1 cycle to fetch the pulse information,
@@ -272,23 +265,26 @@ module tqvp_hx2003_pulse_transmitter (
                 valid_output <= 1;
             end
 
-            if(start_pulse) begin
-                program_started <= 1;
-            end
-
             if (program_counter_increment_trigger) begin
                 if (program_counter == config_program_end_count) begin
-                    // Set the program counter
-                    program_counter <= config_program_start_count;
+                    if(config_loop) begin
+                        // Set the program counter
+                        program_counter <= config_program_loopback_count;
+                    end else begin
+                        // Set program_counter_reached_end, but do not disable output yet
+                        program_counter_reached_end <= 1;
+                    end
+                     
                 end else begin
                     program_counter <= program_counter + 1;
-                    
-                    // Main logic
                 end
+            end
+
+            if (oneshot_timer_trigger && program_counter_reached_end) begin
+                valid_output <= 0;
             end
         end
     end
-
 
     // 
     always @(posedge clk) begin
@@ -297,17 +293,6 @@ module tqvp_hx2003_pulse_transmitter (
             
         end
     end
-
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            transmit_level <= 0;
-        end else begin
-            if (start_pulse == 1'b1) begin
-                    
-            end
-        end
-    end
-
 
     // All addresses read 0.
     assign data_out = 32'b0;

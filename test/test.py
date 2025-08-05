@@ -22,8 +22,8 @@ class Device:
         self.config_invert_output = 0
         self.config_carrier_en = 0
         self.config_interrupt = 0
-        self.config_program_start_count = 0
-        self.config_program_end_count = 15
+        self.config_program_loopback_count = 0
+        self.config_program_end_count = 4
         self.config_main_prescaler = 0
         self.config_auxillary_prescaler = 3
 
@@ -43,7 +43,7 @@ class Device:
         self.config_carrier_start_count = 3 
 
     async def write_reg_0(self):
-        reg0 = (self.config_auxillary_prescaler << 25) | (self.config_main_prescaler << 21) | (self.config_program_end_count << 14) | (self.config_program_start_count << 7) | (self.config_interrupt << 5) | (self.config_carrier_en << 4) | (self.config_invert_output << 3) | (self.config_idle_level << 2) | (self.config_loop << 1) | self.config_start
+        reg0 = (self.config_auxillary_prescaler << 25) | (self.config_main_prescaler << 21) | (self.config_program_end_count << 14) | (self.config_program_loopback_count << 7) | (self.config_interrupt << 5) | (self.config_carrier_en << 4) | (self.config_invert_output << 3) | (self.config_idle_level << 2) | (self.config_loop << 1) | self.config_start
         await self.tqv.write_word_reg(0, reg0)
 
     async def write_reg_1(self):
