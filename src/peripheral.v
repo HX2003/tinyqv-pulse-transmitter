@@ -53,7 +53,7 @@ module tqvp_hx2003_pulse_transmitter (
 
     reg [31:0] reg_1;
     wire [15:0] config_carrier_start_count = reg_1[15:0];
-    wire [7:0] config_auxillary_mask = reg_1[23:6];
+    wire [7:0] config_auxillary_mask = reg_1[23:16];
 
     reg [31:0] reg_2;
     wire [7:0] config_main_low_duration_a = reg_2[7:0];
@@ -135,13 +135,14 @@ module tqvp_hx2003_pulse_transmitter (
 
     wire oneshot_timer_trigger;
     assign oneshot_timer_trigger = start_pulse_delayed_2 || oneshot_timer_pulse;
-    reg [7:0] prefetched_oneshot_timer_duration;
+    reg [7:0] prefetched_timer_duration;
+    reg [3:0] prefetched_prescaler;
     pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
         .en(program_started_delayed_1),
-        .prescaler(config_main_prescaler),
-        .duration(prefetched_oneshot_timer_duration),
+        .prescaler(prefetched_prescaler),
+        .duration(prefetched_timer_duration),
         .pulse_out(oneshot_timer_pulse)
     );
     
@@ -189,18 +190,25 @@ module tqvp_hx2003_pulse_transmitter (
     always @(posedge clk) begin
         if (!rst_n) begin
             prefetched_transmit_level <= 0;
-            prefetched_oneshot_timer_duration <= 0;
+            prefetched_timer_duration <= 0;
+            prefetched_prescaler <= 0;
         end else begin
             if(program_fetch_symbol) begin
                 // fetch the pulse information, and store it
                 prefetched_transmit_level <= symbol_data[1];
 
                 case (symbol_data)
-                    2'd0: prefetched_oneshot_timer_duration <= config_main_low_duration_a;
-                    2'd1: prefetched_oneshot_timer_duration <= config_main_low_duration_b;
-                    2'd2: prefetched_oneshot_timer_duration <= config_main_high_duration_a;
-                    2'd3: prefetched_oneshot_timer_duration <= config_main_high_duration_b;
+                    2'd0: prefetched_timer_duration <= config_main_low_duration_a;
+                    2'd1: prefetched_timer_duration <= config_main_low_duration_b;
+                    2'd2: prefetched_timer_duration <= config_main_high_duration_a;
+                    2'd3: prefetched_timer_duration <= config_main_high_duration_b;
                 endcase
+
+                if (program_counter < 8 && config_auxillary_mask[program_counter]) begin
+                    prefetched_prescaler <= config_auxillary_prescaler;
+                end else begin
+                    prefetched_prescaler <= config_main_prescaler;
+                end
             end
         end
     end
