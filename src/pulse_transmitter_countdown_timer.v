@@ -46,7 +46,7 @@ module pulse_transmitter_countdown_timer #(
 
     always @(posedge clk) begin
         if (!sys_rst_n || !en) begin
-            counter <= 0;
+            counter <= start_count;
             prescaler_counter <= 0;
             out <= 1'b0;
         end else begin 

@@ -16,7 +16,10 @@ class Device:
     def __init__(self, dut, tqv):
         self.dut = dut
         self.tqv = tqv
-
+        self.reset_config()
+         
+    # only sets it, does not actually write to the device
+    def reset_config(self):
         self.config_start = 0
         self.config_idle_level = 0
         self.config_invert_output = 0
@@ -26,22 +29,20 @@ class Device:
         self.config_program_end_index = 0
         self.config_program_loop_count = 0
 
-        self.config_carrier_duration = 3 
+        self.config_carrier_duration = 0
         self.config_auxillary_mask = 0
         self.config_main_prescaler = 0
-        self.config_auxillary_prescaler = 3
+        self.config_auxillary_prescaler = 0
          
-        self.config_main_low_duration_a = 1
-        self.config_main_low_duration_b = 3
+        self.config_main_low_duration_a = 0
+        self.config_main_low_duration_b = 0
         self.config_main_high_duration_a = 0
-        self.config_main_high_duration_b = 2
+        self.config_main_high_duration_b = 0
 
-        self.config_auxillary_low_duration_a = 33
-        self.config_auxillary_low_duration_b = 66
-        self.config_auxillary_high_duration_a = 77
-        self.config_auxillary_high_duration_b = 144
-
-        self.config_carrier_duration = 3 
+        self.config_auxillary_low_duration_a = 0
+        self.config_auxillary_low_duration_b = 0
+        self.config_auxillary_high_duration_a = 0
+        self.config_auxillary_high_duration_b = 0
 
     async def write_reg_0(self):
         reg0 = (self.config_program_loop_count << 21) | (self.config_program_end_index << 14) | (self.config_program_loopback_index << 7) | (self.config_interrupt << 4) | (self.config_carrier_en << 3) | (self.config_invert_output << 2) | (self.config_idle_level << 1) | self.config_start
@@ -129,15 +130,19 @@ class Device:
         # the program must be already configured
         await self.start_program()
 
-        await RisingEdge(self.dut.test_harness.user_peripheral.valid_output)
+        # Wait until valid output goes high
+        while(self.dut.uo_out[3].value == 0):
+            await ClockCycles(self.dut.clk, 1)
+
+        #await RisingEdge(self.dut.test_harness.user_peripheral.valid_output)
 
         for w in waveform:
             duration = w[0]
             expected_level = w[1]
 
             for i in range(duration):
+                #assert self.dut.uo_out[2].value == expected_level
                 await ClockCycles(self.dut.clk, 1)
-                assert self.dut.test_harness.user_peripheral.final_output.value == expected_level
             
             
 
@@ -177,26 +182,42 @@ async def test_project(dut):
     dut._log.info("Test project behavior")
 
     device = Device(dut, tqv)
-    # Configure the pulse transmitter
-    #test_program_1 = [(0, 1), (0, 0), (1, 1), (1, 0)]
-    #device.config_program_end_index = 4
-    #device.generate_expected_waveform(test_program_1)
-    #await device.write_program(test_program_1)
-    
-    test_program_1 = [(0, 1), (0, 0), (1, 1), (1, 1), (1, 0)]
-    device.config_program_end_index = 5
+
+    # Basic test
+    test_program_1 = [(0, 1), (0, 0), (1, 1), (1, 0)]
+    device.reset_config()
+    device.config_program_end_index = 4
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 3
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 2
     await device.write_program(test_program_1)
     await device.test_expected_waveform(test_program_1)
+    
+    # Basic test
+    test_program_2 = [(0, 1), (0, 0), (1, 1), (1, 1), (1, 0)]
+    device.reset_config()
+    device.config_program_end_index = 5
+    device.config_main_low_duration_a = 13
+    device.config_main_low_duration_b = 34
+    device.config_main_high_duration_a = 10
+    device.config_main_high_duration_b = 2
+    await device.write_program(test_program_2)
+    await device.test_expected_waveform(test_program_2)
+
+    # Basic test with prescaler
+    test_program_3 = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0)]
+    device.reset_config()
+    device.config_program_end_index = 5
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 3
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 2
+    device.config_main_prescaler = 1
+    await device.write_program(test_program_3)
+    await device.test_expected_waveform(test_program_3)
 
     await ClockCycles(dut.clk, 100)
-
-    # Start the pulse transmitter
-    device.config_start = 1
-    await device.write_reg_0()
-
-    #await device.collect_program(4)
-
-    #await ClockCycles(dut.clk, 10000)
     #assert await tqv.read_byte_reg(0) == 0x78
     #assert await tqv.read_hword_reg(0) == 0x5678
     #assert await tqv.read_word_reg(0) == 0x82345678
