@@ -66,12 +66,11 @@ module tqvp_hx2003_pulse_transmitter (
     // The rest of our code
     wire start_pulse;
 
-    rising_edge_detector config_start_rising_edge_detector(
+    pulse_transmitter_rising_edge_detector config_start_rising_edge_detector(
         .clk(clk),
-        .rstb(rst_n),
-        .ena(1'b1),
-        .data(config_start),
-        .pos_edge(start_pulse)
+        .rst_n(rst_n),
+        .sig_in(config_start),
+        .pulse_out(start_pulse)
     );
     
     reg [31:0] DATA_MEM[NUM_DATA_REG - 1:0];
@@ -107,9 +106,8 @@ module tqvp_hx2003_pulse_transmitter (
     
     assign uo_out[0] = 0;
     assign uo_out[1] = carrier_output;
-    assign uo_out[2] = prescaler_output;
 
-    assign uo_out[7:3] = 0;
+    assign uo_out[7:2] = 0;
 
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
@@ -125,16 +123,6 @@ module tqvp_hx2003_pulse_transmitter (
         end
     end
     
-    reg prescaler_output;
-
-    prescaler_timer prescaler_timer(
-        .clk(clk),
-        .sys_rst_n(rst_n),
-        .tim_rst(start_pulse),
-        .prescaler(config_main_prescaler),
-        .out(prescaler_output)
-    );
-
     wire oneshot_timer_pulse_out;
 
     reg program_started_pulse;
@@ -142,10 +130,11 @@ module tqvp_hx2003_pulse_transmitter (
     wire oneshot_timer_trigger;
     assign oneshot_timer_trigger = program_started_pulse || oneshot_timer_pulse_out;
     reg [7:0] oneshot_timer_duration;
-    value_timer test_value_timer(
+    pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
         .tim_trig(oneshot_timer_trigger),
+        .prescaler(config_main_prescaler),
         .duration(oneshot_timer_duration),
         .pulse_out(oneshot_timer_pulse_out)
     );

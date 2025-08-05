@@ -1,0 +1,22 @@
+// Simple synchronous falling edge detector
+
+module pulse_transmitter_falling_edge_detector (
+    input clk,           
+    input rst_n,            
+    input sig_in,
+    output reg pulse_out
+);          
+
+    reg sig_delayed;
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            sig_delayed <= 0;
+        end else begin
+            sig_delayed <= sig_in;
+        end
+    end
+
+    assign pulse_out = (!sig_in) && sig_delayed;            
+ 
+endmodule
