@@ -17,7 +17,7 @@ module pulse_transmitter_countdown_timer #(
     input wire clk,
     input wire sys_rst_n,
     input wire en,
-    input wire [($clog2(PRESCALER_WIDTH + 1) - 1):0] prescaler,
+    input wire [($clog2(PRESCALER_WIDTH) - 1):0] prescaler,
     input wire [(TIMER_WIDTH - 1):0] duration,
     output wire pulse_out
 );
