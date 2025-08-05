@@ -3,7 +3,7 @@
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles
+from cocotb.triggers import ClockCycles, RisingEdge, FallingEdge, Edge
 
 from tqv import TinyQV
 
@@ -13,7 +13,8 @@ from tqv import TinyQV
 PERIPHERAL_NUM = 0
 
 class Device:
-    def __init__(self, tqv):
+    def __init__(self, dut, tqv):
+        self.dut = dut
         self.tqv = tqv
 
         self.config_start = 0
@@ -22,7 +23,7 @@ class Device:
         self.config_carrier_en = 0
         self.config_interrupt = 0
         self.config_program_loopback_index = 0
-        self.config_program_end_index = 4
+        self.config_program_end_index = 0
         self.config_program_loop_count = 0
 
         self.config_carrier_duration = 3 
@@ -60,8 +61,102 @@ class Device:
 
     async def write_reg_data(self, addr, data):
         await self.tqv.write_word_reg(addr, data)
+
+    async def start_program(self):
+        self.config_start = 1
+        await self.write_reg_0()
+         
     
-@cocotb.test()
+    # for a symbol tuple[int, int], 
+    # the first value is the duration selector
+    # the second value is the transmit level
+    async def write_program(self, program: list[tuple[int, int]]):
+        word = 0
+        count = 0  # 32 bit word index
+        i = 0
+        
+        for symbol_duration_selector, symbol_transmit_level in program:
+            symbol_data = (symbol_transmit_level << 1 ) | symbol_duration_selector
+
+            word |= symbol_data << (i * 2)
+            i += 1
+
+            if i == 16:
+                await self.tqv.write_reg_data(0b100000 | count, word)
+                word = 0
+                i = 0
+                count += 1
+
+        await self.write_reg_0()
+        await self.write_reg_1()
+        await self.write_reg_2()
+        await self.write_reg_3()
+        await self.write_reg_data(0b100000 | count, word)
+
+        
+    async def test_expected_waveform(self, program: list[tuple[int, int]]):
+        # config_carrier_en must be 0, generation of expected_waveform not supported with this parameter
+        assert not self.config_carrier_en
+
+        waveform = []
+        for i, symbol in enumerate(program):
+            symbol_duration_selector = symbol[0]
+            symbol_transmit_level = symbol[1]
+            symbol_data = (symbol_transmit_level << 1 ) | symbol_duration_selector
+
+            if i < 8 and (self.config_auxillary_mask & (1 << i)):
+                prescaler = self.config_auxillary_prescaler
+                match (symbol_data):
+                    case 0: duration = self.config_auxillary_low_duration_a
+                    case 1: duration = self.config_auxillary_low_duration_b
+                    case 2: duration = self.config_auxillary_high_duration_a
+                    case 3: duration = self.config_auxillary_high_duration_b
+            else:
+                prescaler = self.config_main_prescaler
+                match (symbol_data):
+                    case 0: duration = self.config_main_low_duration_a
+                    case 1: duration = self.config_main_low_duration_b
+                    case 2: duration = self.config_main_high_duration_a
+                    case 3: duration = self.config_main_high_duration_b
+            
+            expected_output = symbol_transmit_level ^ self.config_invert_output
+            expected_duration = ((duration + 1) << prescaler) + 1
+            waveform.append((expected_duration, expected_output))
+
+        # example waveform [(2, 1), (3, 0), (4, 1), (4, 1), (5, 0)] 
+
+        # lets start the test
+        # the program must be already configured
+        await self.start_program()
+
+        await RisingEdge(self.dut.test_harness.user_peripheral.valid_output)
+
+        for w in waveform:
+            duration = w[0]
+            expected_level = w[1]
+
+            for i in range(duration):
+                await ClockCycles(self.dut.clk, 1)
+                assert self.dut.test_harness.user_peripheral.final_output.value == expected_level
+            
+            
+
+    def condense_waveform(self, waveform: list[tuple[int, int]]) -> list[tuple[int, int]]:
+        if not waveform:
+            return []
+
+        condensed = [waveform[0]]
+
+        for duration, level in waveform[1:]:
+            last_duration, last_level = condensed[-1]
+            if level == last_level:
+                condensed[-1] = (last_duration + duration, last_level)
+            else:
+                condensed.append((duration, level))
+
+        return condensed
+    
+@cocotb.test(timeout_time=1, timeout_unit="ms")
 async def test_project(dut):
     dut._log.info("Start")
 
@@ -81,14 +176,17 @@ async def test_project(dut):
 
     dut._log.info("Test project behavior")
 
-    device = Device(tqv)
+    device = Device(dut, tqv)
     # Configure the pulse transmitter
-    await device.write_reg_0()
-    await device.write_reg_1()
-    await device.write_reg_2()
-    await device.write_reg_3()
-
-    await device.write_reg_data(0b100000, 0b0111001001110010011100100111001001110010)
+    #test_program_1 = [(0, 1), (0, 0), (1, 1), (1, 0)]
+    #device.config_program_end_index = 4
+    #device.generate_expected_waveform(test_program_1)
+    #await device.write_program(test_program_1)
+    
+    test_program_1 = [(0, 1), (0, 0), (1, 1), (1, 1), (1, 0)]
+    device.config_program_end_index = 5
+    await device.write_program(test_program_1)
+    await device.test_expected_waveform(test_program_1)
 
     await ClockCycles(dut.clk, 100)
 
@@ -96,7 +194,9 @@ async def test_project(dut):
     device.config_start = 1
     await device.write_reg_0()
 
-    await ClockCycles(dut.clk, 10000)
+    #await device.collect_program(4)
+
+    #await ClockCycles(dut.clk, 10000)
     #assert await tqv.read_byte_reg(0) == 0x78
     #assert await tqv.read_hword_reg(0) == 0x5678
     #assert await tqv.read_word_reg(0) == 0x82345678

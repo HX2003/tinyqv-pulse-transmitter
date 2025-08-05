@@ -137,11 +137,6 @@ module tqvp_hx2003_pulse_transmitter (
     end
 
     // Other stuff
-    reg [15:0] carrier_counter;
-    reg carrier_out;
-    
-    assign uo_out[0] = 0;
-    assign uo_out[1] = carrier_out;
 
     // Apply optional carrier
     wire modulated_output = config_carrier_en ? (transmit_level && carrier_out): transmit_level;
@@ -151,10 +146,9 @@ module tqvp_hx2003_pulse_transmitter (
     
     // Apply optional inversion
     wire final_output = active_or_idle_output ^ config_invert_output;
-    assign uo_out[2] = final_output;
 
-    assign uo_out[7:3] = 0;
-
+    reg [15:0] carrier_counter;
+    reg carrier_out;
     wire carrier_pulse_out;
     pulse_transmitter_rising_edge_detector carrier_out_rising_edge_detector(
         .clk(clk),
@@ -179,16 +173,15 @@ module tqvp_hx2003_pulse_transmitter (
 
     wire timer_pulse_out;
 
-    wire oneshot_timer_trigger;
-    assign oneshot_timer_trigger = start_pulse_delayed_2 || timer_pulse_out;
-    reg [7:0] prefetched_timer_duration;
+    wire timer_trigger = start_pulse_delayed_2 || timer_pulse_out;
+    reg [7:0] prefetched_duration;
     reg [3:0] prefetched_prescaler;
     pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
         .en(timer_enabled),
         .prescaler(prefetched_prescaler),
-        .duration(prefetched_timer_duration),
+        .duration(prefetched_duration),
         .pulse_out(timer_pulse_out)
     );
 
@@ -226,7 +219,7 @@ module tqvp_hx2003_pulse_transmitter (
     always @(posedge clk) begin
         if (!rst_n) begin
             prefetched_transmit_level <= 0;
-            prefetched_timer_duration <= 0;
+            prefetched_duration <= 0;
             prefetched_prescaler <= 0;
         end else begin
             if(program_counter_increment_trigger) begin
@@ -236,18 +229,18 @@ module tqvp_hx2003_pulse_transmitter (
                 if (use_auxillary) begin
                     prefetched_prescaler <= config_auxillary_prescaler;
                     case (symbol_data)
-                        2'd0: prefetched_timer_duration <= config_auxillary_low_duration_a;
-                        2'd1: prefetched_timer_duration <= config_auxillary_low_duration_b;
-                        2'd2: prefetched_timer_duration <= config_auxillary_high_duration_a;
-                        2'd3: prefetched_timer_duration <= config_auxillary_high_duration_b;
+                        2'd0: prefetched_duration <= config_auxillary_low_duration_a;
+                        2'd1: prefetched_duration <= config_auxillary_low_duration_b;
+                        2'd2: prefetched_duration <= config_auxillary_high_duration_a;
+                        2'd3: prefetched_duration <= config_auxillary_high_duration_b;
                     endcase
                 end else begin
                     prefetched_prescaler <= config_main_prescaler;
                     case (symbol_data)
-                        2'd0: prefetched_timer_duration <= config_main_low_duration_a;
-                        2'd1: prefetched_timer_duration <= config_main_low_duration_b;
-                        2'd2: prefetched_timer_duration <= config_main_high_duration_a;
-                        2'd3: prefetched_timer_duration <= config_main_high_duration_b;
+                        2'd0: prefetched_duration <= config_main_low_duration_a;
+                        2'd1: prefetched_duration <= config_main_low_duration_b;
+                        2'd2: prefetched_duration <= config_main_high_duration_a;
+                        2'd3: prefetched_duration <= config_main_high_duration_b;
                     endcase
                 end
             end
@@ -259,7 +252,7 @@ module tqvp_hx2003_pulse_transmitter (
         if (!rst_n) begin
             transmit_level <= 0;
         end else begin
-            if(oneshot_timer_trigger) begin
+            if(timer_trigger) begin
                 // save the transmit_level
                 transmit_level <= prefetched_transmit_level;
             end
@@ -272,7 +265,7 @@ module tqvp_hx2003_pulse_transmitter (
     // once for start_pulse (we fetch the current symbol and increment program_counter)
     // once for start_pulse_delayed_1 (we prefetch the next symbol and increment program_counter)
     // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
-    wire program_counter_increment_trigger = start_pulse || oneshot_timer_trigger;
+    wire program_counter_increment_trigger = start_pulse || timer_trigger;
     
     reg [6:0] program_counter;
     reg [8:0] program_loop_counter; // add 1 more bit for the rollover detector
@@ -325,11 +318,18 @@ module tqvp_hx2003_pulse_transmitter (
                 end
             end
 
-            if (oneshot_timer_trigger && program_reached_end) begin
+            if (timer_trigger && program_reached_end) begin
                 valid_output <= 0;
             end
         end
     end
+
+    // Pin outputs
+    assign uo_out[0] = 0;
+    assign uo_out[1] = carrier_out;
+    assign uo_out[2] = final_output;
+    assign uo_out[3] = valid_output;
+    assign uo_out[7:3] = 0;
 
     // All addresses read 0.
     assign data_out = 32'b0;

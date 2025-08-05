@@ -39,7 +39,7 @@ module pulse_transmitter_countdown_timer #(
     // prescaler = 1, prescaler_compare = 0b0001
     // prescaler = 2, prescaler_compare = 0b0011
     // prescaler = 3, prescaler_compare = 0b0111
-    wire [(PRESCALER_WIDTH - 1):0] prescaler_compare = (1'b1 << prescaler) - 1;
+    wire [(PRESCALER_WIDTH - 1):0] prescaler_compare = ({{(PRESCALER_WIDTH - 1){1'b0}}, 1'b1} << prescaler) - 1;
     
     reg [(TIMER_WIDTH):0] counter; // Add 1 more bit for the rollover detector
     wire [(TIMER_WIDTH):0] start_count = {1'b0, duration};
