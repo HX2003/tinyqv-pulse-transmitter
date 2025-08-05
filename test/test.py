@@ -28,7 +28,7 @@ class Device:
 
         self.config_carrier_start_count = 3 
 
-        self.config_main_low_duration_a = 8
+        self.config_main_low_duration_a = 0
         self.config_main_low_duration_b = 0
         self.config_main_high_duration_a = 0
         self.config_main_high_duration_b = 0

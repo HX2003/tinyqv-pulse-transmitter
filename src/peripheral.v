@@ -134,12 +134,12 @@ module tqvp_hx2003_pulse_transmitter (
     reg program_started_pulse;
 
     wire oneshot_timer_trigger;
-    assign oneshot_timer_trigger = start_pulse_delayed_1 || oneshot_timer_pulse;
+    assign oneshot_timer_trigger = start_pulse_delayed_2 || oneshot_timer_pulse;
     reg [7:0] prefetched_oneshot_timer_duration;
     pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
-        .tim_trig(oneshot_timer_trigger),
+        .en(program_started_delayed_1),
         .prescaler(config_main_prescaler),
         .duration(prefetched_oneshot_timer_duration),
         .pulse_out(oneshot_timer_pulse)
@@ -222,28 +222,37 @@ module tqvp_hx2003_pulse_transmitter (
     wire program_counter_increment_trigger = start_pulse || oneshot_timer_trigger;
 
     reg start_pulse_delayed_1;
-    
+    reg start_pulse_delayed_2;
+    reg program_started;
+    reg program_started_delayed_1;
+
     reg [6:0] program_counter;
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
-            //program_started_pulse <= 0;
+            program_started <= 0;
+            program_started_delayed_1 <= 0;
             program_counter <= 0;
             valid_output <= 0;
             start_pulse_delayed_1 <= 0;
+            start_pulse_delayed_2 <= 0;
         end else begin
             start_pulse_delayed_1 <= start_pulse;
+            start_pulse_delayed_2 <= start_pulse_delayed_1;
 
             if (start_pulse_delayed_1) begin
+                program_started_delayed_1 <= 1;
+            end
+
+
+            if (start_pulse_delayed_2) begin
                 // It takes 1 cycle to fetch the pulse information,
-                // so the initial output is not valid until 1 cycle later 
+                // and another 1 cycle for the timer to start
+                // so the initial output is not valid until 2 cycle later 
                 valid_output <= 1;
             end
 
             if(start_pulse) begin
-                
-                //program_started_pulse <= 1;
-            end else begin
-                //program_started_pulse <= 0;
+                program_started <= 1;
             end
 
             if (program_counter_increment_trigger) begin
