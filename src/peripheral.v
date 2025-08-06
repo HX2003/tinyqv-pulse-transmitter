@@ -36,23 +36,15 @@ module tqvp_hx2003_pulse_transmitter (
 
     // Calculated parameters
     localparam DATA_REG_ADDR_NUM_BITS = $clog2(NUM_DATA_REG);
-
+    
     // The various configuration registers
     reg [31:0] reg_0;
     // First 8 bits (Interrupt flags and config start)
-    wire [3:0] interrupt_event_flag = {
-        1'b0, // bit 3 (program_counter_64_interrupt)
-        1'b0, // bit 2 (program_end_interrupt)
-        1'b0, // bit 1 (loop_interrupt)
-        timer_pulse_out // bit 0 (timer_interrupt)
-    };
+    `define interrupt_status_register reg_0[3:0]
     wire _unused_reg_0_a = &{reg_0[6:4], 1'b0};
     wire config_start = reg_0[7];
     // Next 8 bits (Interrupt enable and other configs)
-    wire config_timer_interrupt_en = reg_0[8];
-    wire config_loop_interrupt_en = reg_0[9];
-    wire config_program_end_interrupt_en = reg_0[10];
-    wire config_program_counter_64_interrupt_en = reg_0[11];
+    wire [3:0] config_interrupt_enable_mask = reg_0[11:8];
     wire config_loop_forever = reg_0[12];
     wire config_idle_level = reg_0[13];
     wire config_invert_output = reg_0[14];
@@ -81,6 +73,16 @@ module tqvp_hx2003_pulse_transmitter (
     wire [7:0] config_auxillary_duration_b = reg_3[23:16];
     wire [3:0] config_auxillary_prescaler = reg_3[27:24];
     wire _unused_reg_3_a = &{reg_3[31:28], 1'b0};
+
+    // Interrupt
+    assign user_interrupt = `interrupt_status_register > 0;
+    
+    wire [3:0] interrupt_event_flag = {
+        1'b0, // bit 3 (program_counter_64_interrupt)
+        1'b0, // bit 2 (program_end_interrupt)
+        1'b0, // bit 1 (loop_interrupt)
+        timer_pulse_out // bit 0 (timer_interrupt)
+    } & config_interrupt_enable_mask;
 
     // The rest of our code
     wire start_pulse;
@@ -111,7 +113,7 @@ module tqvp_hx2003_pulse_transmitter (
                         2'd0: begin
                             // reg_0[3:0] stores the interrupt values
                             // BITS 4 to 6 are not used here
-                            reg_0[3:0] <= (reg_0[3:0] & ~data_in[3:0]) | interrupt_event_flag;
+                            `interrupt_status_register <= (`interrupt_status_register & ~data_in[3:0]) | interrupt_event_flag;
                             reg_0[31:7] <= data_in[31:7];
                         end
                         2'd1: reg_1 <= data_in[31:0];
@@ -130,19 +132,16 @@ module tqvp_hx2003_pulse_transmitter (
                 if (address == 0) begin
                     // reg_0[3:0] stores the interrupt values
                     // BITS 4 to 6 are not used here
-                    reg_0[3:0] <= (reg_0[3:0] & ~data_in[3:0]) | interrupt_event_flag;
+                    `interrupt_status_register <= (`interrupt_status_register & ~data_in[3:0]) | interrupt_event_flag;
                     reg_0[7] <= data_in[7]; 
                 end
             end else begin
                 // reg_0[3:0] stores the interrupt values
-                reg_0[3:0] <= reg_0[3:0] | interrupt_event_flag;
+                `interrupt_status_register <= `interrupt_status_register | interrupt_event_flag;
             end
         end 
     end
  
-    // Interrupt
-    assign user_interrupt = interrupt_event_flag > 0;
-
     // Apply optional carrier
     wire modulated_output = config_carrier_en ? (transmit_level && carrier_out): transmit_level;
 
