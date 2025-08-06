@@ -46,19 +46,19 @@ class Device:
 
     async def write_reg_0(self):
         reg0 = (self.config_program_loop_count << 21) | (self.config_program_end_index << 14) | (self.config_program_loopback_index << 7) | (self.config_interrupt << 4) | (self.config_carrier_en << 3) | (self.config_invert_output << 2) | (self.config_idle_level << 1) | self.config_start
-        await self.tqv.write_word_reg(0, reg0)
+        await self.tqv.write_word_reg(0 << 2, reg0)
 
     async def write_reg_1(self):
         reg1 =  (self.config_auxillary_prescaler << 28) | (self.config_main_prescaler << 24) | (self.config_auxillary_mask << 16) | self.config_carrier_duration
-        await self.tqv.write_word_reg(1, reg1)
+        await self.tqv.write_word_reg(1 << 2, reg1)
 
     async def write_reg_2(self):
         reg2 = (self.config_main_high_duration_b << 24) | (self.config_main_high_duration_a << 16) | (self.config_main_low_duration_b << 8) | self.config_main_low_duration_a
-        await self.tqv.write_word_reg(2, reg2)
+        await self.tqv.write_word_reg(2 << 2, reg2)
     
     async def write_reg_3(self):
         reg3 = (self.config_auxillary_high_duration_b << 24) | (self.config_auxillary_high_duration_a << 16) | (self.config_auxillary_low_duration_b << 8) | self.config_auxillary_low_duration_a
-        await self.tqv.write_word_reg(3, reg3)
+        await self.tqv.write_word_reg(3 << 2, reg3)
 
     async def write_reg_data(self, addr, data):
         await self.tqv.write_word_reg(addr, data)
@@ -73,7 +73,7 @@ class Device:
     # the second value is the transmit level
     async def write_program(self, program: list[tuple[int, int]]):
         word = 0
-        count = 0  # 32 bit word index
+        count = 0
         i = 0
         
         for symbol_duration_selector, symbol_transmit_level in program:
@@ -86,7 +86,7 @@ class Device:
                 await self.tqv.write_reg_data(0b100000 | count, word)
                 word = 0
                 i = 0
-                count += 1
+                count += 4
 
         await self.write_reg_0()
         await self.write_reg_1()
@@ -141,7 +141,7 @@ class Device:
             expected_level = w[1]
 
             for i in range(duration):
-                #assert self.dut.uo_out[2].value == expected_level
+                assert self.dut.uo_out[2].value == expected_level
                 await ClockCycles(self.dut.clk, 1)
             
             
