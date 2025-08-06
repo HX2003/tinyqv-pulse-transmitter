@@ -53,7 +53,7 @@ module tqvp_hx2003_pulse_transmitter (
     wire config_loop_interrupt_en = reg_0[9];
     wire config_program_end_interrupt_en = reg_0[10];
     wire config_program_counter_128_interrupt_en = reg_0[11];
-    wire _unused_reg_0_b = &{reg_0[12], 1'b0};
+    wire config_loop_forever = reg_0[12];
     wire config_idle_level = reg_0[13];
     wire config_invert_output = reg_0[14];
     wire config_carrier_en = reg_0[15];
@@ -270,16 +270,18 @@ module tqvp_hx2003_pulse_transmitter (
     
     reg [6:0] program_counter;
     reg [8:0] program_loop_counter; // add 1 more bit for the rollover detector
-    reg program_reached_end;
+    reg program_end_of_file;
+    reg program_end_of_file_delayed_1;
     reg start_pulse_delayed_1;
     reg start_pulse_delayed_2;
     reg timer_enabled;
      
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
-            program_loop_counter <= 0;
+            program_loop_counter <= {1'b0, config_program_loop_count} - 1; // must loaded first, then do a seperate write to start
             timer_enabled <= 0;
-            program_reached_end <= 0;
+            program_end_of_file <= 0;
+            program_end_of_file_delayed_1 <= 0;
             program_counter <= 0;
             valid_output <= 0;
             start_pulse_delayed_1 <= 0;
@@ -289,7 +291,7 @@ module tqvp_hx2003_pulse_transmitter (
             start_pulse_delayed_2 <= start_pulse_delayed_1;
 
             if (start_pulse) begin 
-                program_loop_counter <= {1'b0, config_program_loop_count} - 1;
+                 
             end    
 
             if (start_pulse_delayed_1) begin
@@ -305,21 +307,25 @@ module tqvp_hx2003_pulse_transmitter (
 
             if (program_counter_increment_trigger) begin
                 if (program_counter == config_program_end_index) begin
-                    if(program_loop_counter[8] == 1'b1) begin
-                        // Set program_reached_end, but do not disable output yet
-                        program_reached_end <= 1;
+                    if (!config_loop_forever && (program_loop_counter[8] == 1'b1)) begin
+                        // Set program_end_of_file
+                        // But do not disable output yet, as the preloaded values are not yet flushed out
+                        program_end_of_file <= 1;
                     end else begin
-                         // Set the program counter
+                        // We want to loop, set the program counter
                         program_counter <= config_program_loopback_index;
                         program_loop_counter <= program_loop_counter - 1;
                     end
-                     
                 end else begin
                     program_counter <= program_counter + 1;
                 end
             end
 
-            if (timer_trigger && program_reached_end) begin
+            if (timer_trigger) begin
+                program_end_of_file_delayed_1 <= program_end_of_file;
+            end
+
+            if (timer_trigger && program_end_of_file_delayed_1) begin
                 valid_output <= 0;
             end
         end

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: © 2025 Tiny Tapeout
 # SPDX-License-Identifier: Apache-2.0
 
+import random
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, RisingEdge, FallingEdge, Edge
@@ -13,10 +15,24 @@ from tqv import TinyQV
 PERIPHERAL_NUM = 0
 
 class Device:
-    def __init__(self, dut, tqv):
+    def __init__(self, dut):
         self.dut = dut
-        self.tqv = tqv
         self.reset_config()
+    
+    async def init(self):
+        # Set the clock period to 100 ns (10 MHz)
+        clock = Clock(self.dut.clk, 100, units="ns")
+        cocotb.start_soon(clock.start())
+
+        # Interact with your design's registers through this TinyQV class.
+        # This will allow the same test to be run when your design is integrated
+        # with TinyQV - the implementation of this class will be replaces with a
+        # different version that uses Risc-V instructions instead of the SPI test
+        # harness interface to read and write the registers.
+        self.tqv = TinyQV(self.dut, PERIPHERAL_NUM)
+
+        # Reset
+        await self.tqv.reset()
          
     # only sets it, does not actually write to the device
     def reset_config(self):
@@ -29,6 +45,7 @@ class Device:
         self.config_loop_interrupt_en = 0
         self.config_program_end_interrupt_en = 0
         self.config_program_counter_128_interrupt_en = 0
+        self.config_loop_forever = 0
         self.config_idle_level = 0
         self.config_invert_output = 0
         self.config_carrier_en = 0 
@@ -43,7 +60,6 @@ class Device:
         self.config_main_low_duration_b = 0
         self.config_main_high_duration_a = 0
         self.config_main_high_duration_b = 0
-
         
         self.config_auxillary_mask = 0
         self.config_auxillary_duration_a = 0
@@ -60,6 +76,7 @@ class Device:
             | (self.config_loop_interrupt_en << 9) \
             | (self.config_program_end_interrupt_en << 10) \
             | (self.config_program_counter_128_interrupt_en << 11) \
+            | (self.config_loop_forever << 12) \
             | (self.config_idle_level << 13) \
             | (self.config_invert_output << 14) \
             | (self.config_carrier_en << 15) \
@@ -87,9 +104,6 @@ class Device:
         
         await self.tqv.write_word_reg(12, reg3)
 
-    async def write_reg_data(self, addr, data):
-        await self.tqv.write_word_reg(addr, data)
-
     """ Start the program (also clears any interrupt) """
     async def start_program(self):
         self.timer_interrupt_clear = 1
@@ -110,6 +124,14 @@ class Device:
     # the first value is the duration selector
     # the second value is the transmit level
     async def write_program(self, program: list[tuple[int, int]]):
+        # config_start must be 0, as the program must not be started yet
+        assert self.config_start == 0
+
+        await self.write_reg_0()
+        await self.write_reg_1()
+        await self.write_reg_2()
+        await self.write_reg_3()
+
         word = 0
         count = 0
         i = 0
@@ -121,16 +143,13 @@ class Device:
             i += 1
 
             if i == 16:
-                await self.tqv.write_reg_data(0b100000 | count, word)
+                await self.tqv.write_word_reg(0b100000 | count, word)
                 word = 0
                 i = 0
                 count += 4
 
-        await self.write_reg_0()
-        await self.write_reg_1()
-        await self.write_reg_2()
-        await self.write_reg_3()
-        await self.write_reg_data(0b100000 | count, word)
+        if i < 16:
+            await self.tqv.write_word_reg(0b100000 | count, word)
 
         
     async def test_expected_waveform(self, program: list[tuple[int, int]]):
@@ -173,83 +192,237 @@ class Device:
 
         #await RisingEdge(self.dut.test_harness.user_peripheral.valid_output)
 
+        total_duration = 0
         for w in waveform:
             duration = w[0]
+            total_duration += duration
             expected_level = w[1]
 
             for i in range(duration):
                 assert self.dut.uo_out[2].value == expected_level
                 await ClockCycles(self.dut.clk, 1)
-    
+
+        # lets check the idle state is correct for
+        # the next total_duration cycles for good measure
+        for i in range(total_duration):
+            assert self.dut.uo_out[2].value == (self.config_idle_level ^ self.config_invert_output)
+            await ClockCycles(self.dut.clk, 1)
+
+
+# Basic test
 @cocotb.test(timeout_time=10, timeout_unit="ms")
-async def test_project(dut):
-    dut._log.info("Start")
+async def basic_test1(dut):
+    device = Device(dut)
+    await device.init()
 
-    # Set the clock period to 100 ns (10 MHz)
-    clock = Clock(dut.clk, 100, units="ns")
-    cocotb.start_soon(clock.start())
+    program = [(0, 1)]
 
-    # Interact with your design's registers through this TinyQV class.
-    # This will allow the same test to be run when your design is integrated
-    # with TinyQV - the implementation of this class will be replaces with a
-    # different version that uses Risc-V instructions instead of the SPI test
-    # harness interface to read and write the registers.
-    tqv = TinyQV(dut, PERIPHERAL_NUM)
+    device.config_program_end_index = len(program) - 1
+    device.config_main_high_duration_a = 0
 
-    # Reset
-    await tqv.reset()
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
 
-    dut._log.info("Test project behavior")
+# Basic test
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test2(dut):
+    device = Device(dut)
+    await device.init()
 
-    device = Device(dut, tqv)
+    program = [(0, 1)]
 
-    # Basic test
-    test_program_1 = [(0, 1), (0, 0), (1, 1), (1, 0)]
-    device.reset_config()
-    device.config_program_end_index = 4
+    device.config_program_end_index = len(program) - 1
+    device.config_main_high_duration_a = 157
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test3(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
     device.config_main_low_duration_a = 1
     device.config_main_low_duration_b = 3
     device.config_main_high_duration_a = 0
     device.config_main_high_duration_b = 2
-    await device.write_program(test_program_1)
-    await device.test_expected_waveform(test_program_1)
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test with output inverted
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test4(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 0)]
     
-    # Basic test
-    test_program_2 = [(0, 1), (0, 0), (1, 1), (1, 1), (1, 0)]
-    device.reset_config()
-    device.config_program_end_index = 5
+    device.config_invert_output = 1
+    device.config_program_end_index = len(program) - 1
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 3
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 2
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test5(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
     device.config_main_low_duration_a = 13
     device.config_main_low_duration_b = 34
     device.config_main_high_duration_a = 10
-    device.config_main_high_duration_b = 2
-    await device.write_program(test_program_2)
-    await device.test_expected_waveform(test_program_2)
+    device.config_main_high_duration_b = 10
 
-    # Basic test with prescaler
-    test_program_3 = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0)]
-    device.reset_config()
-    device.config_program_end_index = 5
-    device.config_main_low_duration_a = 1
-    device.config_main_low_duration_b = 3
-    device.config_main_high_duration_a = 0
-    device.config_main_high_duration_b = 2
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test6(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 1), (0, 0), (0, 0), (1, 0), (0, 1)]
+    
+    device.config_program_end_index = len(program) - 1
+    
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test with prescaler
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test7(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_main_low_duration_a = 2
+    device.config_main_low_duration_b = 0
+    device.config_main_high_duration_a = 4
+    device.config_main_high_duration_b = 6
     device.config_main_prescaler = 1
-    await device.write_program(test_program_3)
-    await device.test_expected_waveform(test_program_3)
 
-    # Basic test with bigger prescaler
-    test_program_4 = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0)]
-    device.reset_config()
-    device.config_program_end_index = 5
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test with prescaler
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test8(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_main_low_duration_a = 2
+    device.config_main_low_duration_b = 0
+    device.config_main_high_duration_a = 4
+    device.config_main_high_duration_b = 6
+    device.config_main_prescaler = 2
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test with bigger prescaler
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test9(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
     device.config_main_low_duration_a = 1
     device.config_main_low_duration_b = 3
     device.config_main_high_duration_a = 0
     device.config_main_high_duration_b = 2
     device.config_main_prescaler = 9
-    await device.write_program(test_program_4)
-    await device.test_expected_waveform(test_program_4)
 
-    await ClockCycles(dut.clk, 100)
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test to test that config_program_end_index is respected
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test10(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 3
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 2
+    device.config_main_prescaler = 9
+
+    # fill in the rest of the buffer with some data
+    program_with_extras = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1)]
+    await device.write_program(program_with_extras)
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test 127 entries (which is the maximum)
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test11(dut):
+    device = Device(dut)
+    await device.init()
+
+    program_len = 127
+    
+    program = []
+
+    random.seed(8888) 
+    for _ in range(program_len):
+        duration_selector = random.randint(0, 1)  # 1-bit selector: 0 or 1
+        transmit_level = random.randint(0, 1)     # 1-bit transmit level: 0 or 1
+        program.append((duration_selector, transmit_level))
+    
+    device.config_program_end_index = program_len
+    device.config_main_low_duration_b = 1
+    device.config_main_low_duration_a = 2
+    device.config_main_high_duration_b = 3
+    device.config_main_high_duration_a = 4
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+
+# Advanced test with looping a certain number of counts
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def advanced_test1(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (1, 0)]
+
+    device.config_program_end_index = 1
+    device.config_main_high_duration_a = 4
+    device.config_main_low_duration_b = 5
+    device.config_program_loop_count = 2
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Multi test
+# make sure we can switch different program & configs without residue
+
     #assert await tqv.read_byte_reg(0) == 0x78
     #assert await tqv.read_hword_reg(0) == 0x5678
     #assert await tqv.read_word_reg(0) == 0x82345678
@@ -275,7 +448,7 @@ async def test_project(dut):
     #await tqv.write_word_reg(0, 40)
     #assert dut.uo_out.value == 70
 
-    """# Test the interrupt, generated when ui_in[6] goes high
+"""# Test the interrupt, generated when ui_in[6] goes high
     dut.ui_in[6].value = 1
     await ClockCycles(dut.clk, 1)
     dut.ui_in[6].value = 0
