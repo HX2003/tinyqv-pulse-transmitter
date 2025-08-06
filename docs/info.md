@@ -105,7 +105,7 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 | 2     | loop_interrupt_status               |
 | 3     | program_end_interrupt_status        |
 | 4     | program_counter_64_interrupt_status |
-| 7:5   | *unused* (value from last write)    |
+| 7:5   | *unused* (value of 0)               |
 | 14:8  | program_counter                     |
 | 15    | *unused* (value of 0)               |
 | 24:16 | program_loop_counter (9 bits)       |

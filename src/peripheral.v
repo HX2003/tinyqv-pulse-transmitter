@@ -132,7 +132,7 @@ module tqvp_hx2003_pulse_transmitter (
                             // write 1 to the desired interrupt bit to clear it
                             `interrupt_status_register <= (`interrupt_status_register & ~data_in[4:1]) | interrupt_event_flag;
                             
-                            reg_0[7:5] <= data_in[7:5];
+                            // reg_0[7:5] <= data_in[7:5]; not using, so lets save space
 
                             if (data_write_n == 2'b10) begin
                                 // 32 bit write (write the remaining 24 bits)
@@ -355,7 +355,8 @@ module tqvp_hx2003_pulse_transmitter (
     assign uo_out[7:4] = {final_output, final_output, final_output, final_output};
   
     // Read address doesn't matter
-    assign data_out[7:0] = reg_0[7:0];
+    assign data_out[4:0] = reg_0[4:0];
+    assign data_out[7:5] = 3'b0;
     assign data_out[14:8] = program_counter;
     assign data_out[15] = 1'b0;
     assign data_out[24:16] = program_loop_counter; // 9 bits
