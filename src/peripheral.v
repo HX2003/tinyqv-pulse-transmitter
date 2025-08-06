@@ -264,7 +264,6 @@ module tqvp_hx2003_pulse_transmitter (
 
     // The program counter should increment:
     // once for start_pulse (we fetch the current symbol and increment program_counter)
-    // once for start_pulse_delayed_1 (we prefetch the next symbol and increment program_counter)
     // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
     wire program_counter_increment_trigger = start_pulse || timer_trigger;
     
@@ -278,7 +277,7 @@ module tqvp_hx2003_pulse_transmitter (
      
     always @(posedge clk) begin
         if (!rst_n || !config_start) begin
-            program_loop_counter <= {1'b0, config_program_loop_count} - 1; // must loaded first, then do a seperate write to start
+            program_loop_counter <= {1'b0, config_program_loop_count} - 1;
             timer_enabled <= 0;
             program_end_of_file <= 0;
             program_end_of_file_delayed_1 <= 0;
@@ -289,10 +288,6 @@ module tqvp_hx2003_pulse_transmitter (
         end else begin
             start_pulse_delayed_1 <= start_pulse;
             start_pulse_delayed_2 <= start_pulse_delayed_1;
-
-            if (start_pulse) begin 
-                 
-            end    
 
             if (start_pulse_delayed_1) begin
                 timer_enabled <= 1;
@@ -328,6 +323,8 @@ module tqvp_hx2003_pulse_transmitter (
             if (timer_trigger && program_end_of_file_delayed_1) begin
                 valid_output <= 0;
             end
+
+            
         end
     end
 

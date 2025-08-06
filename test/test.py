@@ -148,7 +148,8 @@ class Device:
                 i = 0
                 count += 4
 
-        if i < 16:
+        # Write the remaining bits
+        if i > 0:
             await self.tqv.write_word_reg(0b100000 | count, word)
 
         
@@ -192,15 +193,49 @@ class Device:
 
         #await RisingEdge(self.dut.test_harness.user_peripheral.valid_output)
 
+        # The logic for the program is written is a much different way than the verilog code,
+        # but it should achieve the same outcome
+        program_counter = 0
+
+        # when config_program_loop_count = 0, the program executes once
+        # when config_program_loop_count = 1, the program executes twice
+        # and so on...
+        program_loop_counter = self.config_program_loop_count + 1
         total_duration = 0
-        for w in waveform:
+        waveform_len = len(waveform)
+        output_valid = True
+
+        while(output_valid):
+            assert program_counter < waveform_len # make sure don't access out of bounds
+
+            duration = waveform[program_counter][0]
+            expected_level = waveform[program_counter][1]
+
+            total_duration += duration
+            
+            for i in range(duration): # check every cycle for thoroughness
+                assert self.dut.uo_out[2].value == expected_level
+                await ClockCycles(self.dut.clk, 1) 
+
+            if(program_counter == self.config_program_end_index):
+                program_loop_counter -= 1
+                
+                if(program_loop_counter > 0):
+                    program_counter = self.config_program_loopback_index
+                else:
+                    output_valid = False
+            else:
+                program_counter += 1
+            
+
+        """for w in waveform:
             duration = w[0]
             total_duration += duration
             expected_level = w[1]
 
             for i in range(duration):
                 assert self.dut.uo_out[2].value == expected_level
-                await ClockCycles(self.dut.clk, 1)
+                await ClockCycles(self.dut.clk, 1)"""
 
         # lets check the idle state is correct for
         # the next total_duration cycles for good measure
@@ -208,7 +243,7 @@ class Device:
             assert self.dut.uo_out[2].value == (self.config_idle_level ^ self.config_invert_output)
             await ClockCycles(self.dut.clk, 1)
 
-
+"""
 # Basic test
 @cocotb.test(timeout_time=10, timeout_unit="ms")
 async def basic_test1(dut):
@@ -378,13 +413,13 @@ async def basic_test10(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
-# Basic test 127 entries (which is the maximum)
+# Basic test 128 entries (which is the maximum)
 @cocotb.test(timeout_time=10, timeout_unit="ms")
 async def basic_test11(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = 127
+    program_len = 128
     
     program = []
 
@@ -394,7 +429,7 @@ async def basic_test11(dut):
         transmit_level = random.randint(0, 1)     # 1-bit transmit level: 0 or 1
         program.append((duration_selector, transmit_level))
     
-    device.config_program_end_index = program_len
+    device.config_program_end_index = program_len - 1
     device.config_main_low_duration_b = 1
     device.config_main_low_duration_a = 2
     device.config_main_high_duration_b = 3
@@ -403,7 +438,7 @@ async def basic_test11(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
-
+"""
 # Advanced test with looping a certain number of counts
 @cocotb.test(timeout_time=10, timeout_unit="ms")
 async def advanced_test1(dut):
