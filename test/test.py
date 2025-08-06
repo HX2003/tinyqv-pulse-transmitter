@@ -46,19 +46,19 @@ class Device:
 
     async def write_reg_0(self):
         reg0 = (self.config_program_loop_count << 21) | (self.config_program_end_index << 14) | (self.config_program_loopback_index << 7) | (self.config_interrupt << 4) | (self.config_carrier_en << 3) | (self.config_invert_output << 2) | (self.config_idle_level << 1) | self.config_start
-        await self.tqv.write_word_reg(0 << 2, reg0)
+        await self.tqv.write_word_reg(0, reg0)
 
     async def write_reg_1(self):
         reg1 =  (self.config_auxillary_prescaler << 28) | (self.config_main_prescaler << 24) | (self.config_auxillary_mask << 16) | self.config_carrier_duration
-        await self.tqv.write_word_reg(1 << 2, reg1)
+        await self.tqv.write_word_reg(4, reg1)
 
     async def write_reg_2(self):
         reg2 = (self.config_main_high_duration_b << 24) | (self.config_main_high_duration_a << 16) | (self.config_main_low_duration_b << 8) | self.config_main_low_duration_a
-        await self.tqv.write_word_reg(2 << 2, reg2)
+        await self.tqv.write_word_reg(8, reg2)
     
     async def write_reg_3(self):
         reg3 = (self.config_auxillary_high_duration_b << 24) | (self.config_auxillary_high_duration_a << 16) | (self.config_auxillary_low_duration_b << 8) | self.config_auxillary_low_duration_a
-        await self.tqv.write_word_reg(3 << 2, reg3)
+        await self.tqv.write_word_reg(12, reg3)
 
     async def write_reg_data(self, addr, data):
         await self.tqv.write_word_reg(addr, data)

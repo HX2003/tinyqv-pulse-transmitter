@@ -79,7 +79,7 @@ module tqvp_hx2003_pulse_transmitter (
     
     reg [31:0] DATA_MEM[(NUM_DATA_REG - 1):0];
 
-    // Implement a 32-bit register writes for the config and data
+    // Implement a 32-bit register writes for the config and data (aligned to 32 bits)
     always @(posedge clk) begin
         if (!rst_n) begin
             // Reset the registers to its defaults
@@ -89,9 +89,9 @@ module tqvp_hx2003_pulse_transmitter (
             reg_3 <= 0;
         end else begin
             if (data_write_n == 2'b10) begin
-                // 32 bits aligned writes
+                // 32 bits writes (aligned to 32 bits)
                 if (address[5] == 1'b0) begin
-                    // Addresses 0, 4, 8, 16 (does not suppport not aligned writes)
+                    // Addresses 0, 4, 8, 12 (does not suppport not aligned writes)
                     case (address[3:2])
                         2'd0: reg_0 <= data_in[31:0];
                         2'd1: reg_1 <= data_in[31:0];
@@ -130,8 +130,8 @@ module tqvp_hx2003_pulse_transmitter (
         end else begin
             if (interrupt_triggered) begin
                 interrupt_register <= 1;
-            end else if (data_write_n == 2'b00 && address == 6'd20 && data_in[0]) begin
-                // interrupts are cleared by cleared by writing a 1 to the low bit of address 20.
+            end else if (data_write_n == 2'b00 && address == 6'd16 && data_in[0]) begin
+                // interrupts are cleared by cleared by writing a 1 to the low bit of address 16.
                 interrupt_register <= 0;
             end
         end
