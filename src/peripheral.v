@@ -42,9 +42,9 @@ module tqvp_hx2003_pulse_transmitter (
     `define run_program_status_register reg_0[0]
     wire _debug_run_program_status_register = reg_0[0];
     `define interrupt_status_register reg_0[4:1]
-    wire _debug_interrupt_status_register = reg_0[4:1];
+    wire [3:0] _debug_interrupt_status_register = reg_0[4:1];
     wire _unused_reg_0_a = &{reg_0[7:5], 1'b0};
-    wire config_interrupt_enable_mask = reg_0[11:8];
+    wire [3:0] config_interrupt_enable_mask = reg_0[11:8];
     wire config_loop_forever = reg_0[12];
     wire config_idle_level = reg_0[13];
     wire config_invert_output = reg_0[14];
@@ -363,5 +363,6 @@ module tqvp_hx2003_pulse_transmitter (
     // List all unused inputs to prevent warnings
     wire _unused1 = &{data_read_n, 1'b0};
     wire _unused2 = &{ui_in, 1'b0};
+    wire _unused3 = &{address[1:0], 1'b0};
 
 endmodule
