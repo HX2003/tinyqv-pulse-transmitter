@@ -55,11 +55,11 @@ class Device:
         self.config_carrier_en = 0
         self.config_carrier_duration = 0
 
+        self.config_program_start_index = 0
+        self.config_program_end_index = 0 
         self.config_program_loop_count = 0
         self.config_program_loopback_index = 0
-        self.config_program_end_index = 0 
-        self.config_main_prescaler = 0
-         
+        
         self.config_main_low_duration_a = 0
         self.config_main_low_duration_b = 0
         self.config_main_high_duration_a = 0
@@ -69,6 +69,8 @@ class Device:
         self.config_auxillary_duration_a = 0
         self.config_auxillary_duration_b = 0
         self.config_auxillary_prescaler = 0
+        self.config_main_prescaler = 0
+         
 
     async def write_reg_0(self):
         reg0 = self.timer_interrupt_clear \
@@ -89,10 +91,10 @@ class Device:
         await self.tqv.write_word_reg(0, reg0)
 
     async def write_reg_1(self):
-        reg1 = self.config_program_loop_count \
-            | (self.config_program_loopback_index << 8) \
-            | (self.config_program_end_index << 16) \
-            | (self.config_main_prescaler << 24)
+        reg1 = self.config_program_start_index \
+            | (self.config_program_end_index << 8) \
+            | (self.config_program_loop_count << 16) \
+            | (self.config_program_loopback_index << 24) \
         
         await self.tqv.write_word_reg(4, reg1)
 
@@ -104,7 +106,8 @@ class Device:
         reg3 = self.config_auxillary_mask \
             | (self.config_auxillary_duration_a << 8) \
             | (self.config_auxillary_duration_b << 16) \
-            | (self.config_auxillary_prescaler << 24)
+            | (self.config_auxillary_prescaler << 24) \
+            | (self.config_main_prescaler << 28)
         
         await self.tqv.write_word_reg(12, reg3)
 
@@ -198,7 +201,6 @@ class Device:
 
         # The logic for the program is written is a much different way than the verilog code,
         # but it should achieve the same outcome
-        program_counter = 0
 
         # when config_program_loop_count = 0, the program executes once
         # when config_program_loop_count = 1, the program executes twice
@@ -211,7 +213,8 @@ class Device:
         
         waveform_len = len(waveform)
         output_valid = True
-
+        
+        program_counter = self.config_program_start_index
         while(output_valid):
             assert program_counter < waveform_len # make sure don't access out of bounds
 
