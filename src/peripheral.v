@@ -39,21 +39,34 @@ module tqvp_hx2003_pulse_transmitter (
 
     // The various configuration registers
     reg [31:0] reg_0;
-    wire config_start = reg_0[0];
-    wire config_idle_level = reg_0[1];
-    wire config_invert_output = reg_0[2];
-    wire config_carrier_en = reg_0[3];
-    wire [2:0] config_interrupt = reg_0[6:4];
-    wire [6:0] config_program_loopback_index = reg_0[13:7];
-    wire [6:0] config_program_end_index = reg_0[20:14];
-    wire [7:0] config_program_loop_count = reg_0[28:21];
-    wire _unused_reg0 = &{reg_0[31:29], 1'b0};
+    // First 8 bits (Interrupt flags and config start)
+    wire [3:0] interrupt_event_flag = {
+        1'b0, // bit 3 (program_counter_128_interrupt)
+        1'b0, // bit 2 (program_end_interrupt)
+        1'b0, // bit 1 (loop_interrupt)
+        timer_pulse_out // bit 0 (timer_interrupt)
+    };
+    wire _unused_reg_0_a = &{reg_0[6:4], 1'b0};
+    wire config_start = reg_0[7];
+    // Next 8 bits (Interrupt enable and other configs)
+    wire config_timer_interrupt_en = reg_0[8];
+    wire config_loop_interrupt_en = reg_0[9];
+    wire config_program_end_interrupt_en = reg_0[10];
+    wire config_program_counter_128_interrupt_en = reg_0[11];
+    wire _unused_reg_0_b = &{reg_0[12], 1'b0};
+    wire config_idle_level = reg_0[13];
+    wire config_invert_output = reg_0[14];
+    wire config_carrier_en = reg_0[15];
+    // Next 16 bits (Carrier duration)
+    wire [15:0] config_carrier_duration = reg_0[31:16];
 
     reg [31:0] reg_1;
-    wire [15:0] config_carrier_duration = reg_1[15:0];
-    wire [7:0] config_auxillary_mask = reg_1[23:16];
+    wire [7:0] config_program_loop_count = reg_1[7:0];
+    wire [6:0] config_program_loopback_index = reg_1[14:8];
+    wire _unused_reg_1_a = &{reg_1[15], 1'b0};
+    wire [6:0] config_program_end_index = reg_1[22:16];
+    wire _unused_reg_1_b = &{reg_1[23], 1'b0};
     wire [3:0] config_main_prescaler = reg_1[27:24];
-    wire [3:0] config_auxillary_prescaler = reg_1[31:28];
 
     reg [31:0] reg_2;
     wire [7:0] config_main_low_duration_a = reg_2[7:0];
@@ -62,10 +75,10 @@ module tqvp_hx2003_pulse_transmitter (
     wire [7:0] config_main_high_duration_b = reg_2[31:24];
 
     reg [31:0] reg_3;
-    wire [7:0] config_auxillary_low_duration_a = reg_3[7:0];
-    wire [7:0] config_auxillary_low_duration_b = reg_3[15:8];
-    wire [7:0] config_auxillary_high_duration_a = reg_3[23:16];
-    wire [7:0] config_auxillary_high_duration_b = reg_3[31:24];
+    wire [7:0] config_auxillary_mask = reg_3[7:0];
+    wire [7:0] config_auxillary_duration_a = reg_3[15:8];
+    wire [7:0] config_auxillary_duration_b = reg_3[23:16];
+    wire [3:0] config_auxillary_prescaler = reg_3[27:24];
 
     // The rest of our code
     wire start_pulse;
@@ -89,55 +102,44 @@ module tqvp_hx2003_pulse_transmitter (
             reg_3 <= 0;
         end else begin
             if (data_write_n == 2'b10) begin
-                // 32 bits writes (aligned to 32 bits)
+                // 32 bit writes (aligned to 32 bits)
                 if (address[5] == 1'b0) begin
-                    // Addresses 0, 4, 8, 12 (does not suppport not aligned writes)
+                    // Addresses 0, 4, 8, 12 (does not handle not aligned writes)
                     case (address[3:2])
-                        2'd0: reg_0 <= data_in[31:0];
+                        2'd0: begin
+                            // reg_0[3:0] stores the interrupt values
+                            // BITS 4 to 6 are not used here
+                            reg_0[3:0] <= (reg_0[3:0] & ~data_in[3:0]) | interrupt_event_flag;
+                            reg_0[31:7] <= data_in[31:7];
+                        end
                         2'd1: reg_1 <= data_in[31:0];
                         2'd2: reg_2 <= data_in[31:0];
                         2'd3: reg_3 <= data_in[31:0];
                     endcase
                 end else begin
-                    // map the lower bits to our DATA_MEM
-                    DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1):0]] <= data_in[31:0];
+                    // map the address to our DATA_MEM
+                    // 0b100000 -> DATA_MEM index 0
+                    // 0b100100 -> DATA_MEM index 1
+                    // 0b101000 -> DATA_MEM index 2
+                    DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1 + 2):2]] <= data_in[31:0];
                 end
+            end else if (data_write_n == 2'b00) begin
+                // 8 bit writes
+                if (address == 0) begin
+                    // reg_0[3:0] stores the interrupt values
+                    // BITS 4 to 6 are not used here
+                    reg_0[3:0] <= (reg_0[3:0] & ~data_in[3:0]) | interrupt_event_flag;
+                    reg_0[7] <= data_in[7]; 
+                end
+            end else begin
+                // reg_0[3:0] stores the interrupt values
+                reg_0[3:0] <= reg_0[3:0] | interrupt_event_flag;
             end
         end 
     end
-
-    assign user_interrupt = interrupt_register;
-    reg interrupt_register;
-    reg interrupt_triggered;
-
-    always @(*) begin
-        case (config_interrupt)
-            3'd0: interrupt_triggered = 0;
-            3'd1: interrupt_triggered = carrier_pulse_out;
-            3'd2: interrupt_triggered = timer_pulse_out;
-            3'd3: interrupt_triggered = 0;
-            3'd4: interrupt_triggered = 0;
-            3'd5: interrupt_triggered = 0;
-            3'd6: interrupt_triggered = 0;
-            3'd7: interrupt_triggered = 0;
-        endcase
-    end
-
-    // Interrupts
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            interrupt_register <= 0;
-        end else begin
-            if (interrupt_triggered) begin
-                interrupt_register <= 1;
-            end else if (data_write_n == 2'b00 && address == 6'd16 && data_in[0]) begin
-                // interrupts are cleared by cleared by writing a 1 to the low bit of address 16.
-                interrupt_register <= 0;
-            end
-        end
-    end
-
-    // Other stuff
+ 
+    // Interrupt
+    assign user_interrupt = interrupt_event_flag > 0;
 
     // Apply optional carrier
     wire modulated_output = config_carrier_en ? (transmit_level && carrier_out): transmit_level;
@@ -229,12 +231,10 @@ module tqvp_hx2003_pulse_transmitter (
 
                 if (use_auxillary) begin
                     prefetched_prescaler <= config_auxillary_prescaler;
-                    case (symbol_data)
-                        2'd0: prefetched_duration <= config_auxillary_low_duration_a;
-                        2'd1: prefetched_duration <= config_auxillary_low_duration_b;
-                        2'd2: prefetched_duration <= config_auxillary_high_duration_a;
-                        2'd3: prefetched_duration <= config_auxillary_high_duration_b;
-                    endcase
+                    if(symbol_data[0] == 1'b0) begin
+                        prefetched_duration <= config_auxillary_duration_a;
+                        prefetched_duration <= config_auxillary_duration_b;
+                    end
                 end else begin
                     prefetched_prescaler <= config_main_prescaler;
                     case (symbol_data)
