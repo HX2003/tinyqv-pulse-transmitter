@@ -47,13 +47,13 @@ pinout:
   # Outputs
   uo[0]: ""
   uo[1]: ""
-  uo[2]: ""
-  uo[3]: ""
-  uo[4]: ""
-  uo[5]: ""
-  uo[6]: ""
-  uo[7]: ""
-
+  uo[2]: "carrier_out"
+  uo[3]: "valid_output"
+  uo[4]: "final_output"
+  uo[5]: "final_output"
+  uo[6]: "final_output"
+  uo[7]: "final_output"
+  
   # Bidirectional pins
   uio[0]: "user_interrupt"
   uio[1]: "data_ready"

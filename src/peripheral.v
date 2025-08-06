@@ -165,9 +165,11 @@ module tqvp_hx2003_pulse_transmitter (
     
     // Apply optional inversion
     wire final_output = active_or_idle_output ^ config_invert_output;
-
+    
     reg [15:0] carrier_counter;
     reg carrier_out;
+    
+    /*
     wire carrier_pulse_out;
     pulse_transmitter_rising_edge_detector carrier_out_rising_edge_detector(
         .clk(clk),
@@ -175,16 +177,7 @@ module tqvp_hx2003_pulse_transmitter (
         .sig_in(carrier_out),
         .pulse_out(carrier_pulse_out)
     );
-
-    wire start_pulse_delayed_1;
-    wire start_pulse_delayed_2;
-    pulse_transmitter_delay_2 start_pulse_delayer(
-        .clk(clk),
-        .sys_rst_n(rst_n),
-        .sig_in(start_pulse),
-        .sig_delayed_1_out(start_pulse_delayed_1),
-        .sig_delayed_2_out(start_pulse_delayed_2)
-    );
+    */
 
     always @(posedge clk) begin
         if (!rst_n || !`run_program_status_register) begin
@@ -199,6 +192,16 @@ module tqvp_hx2003_pulse_transmitter (
             end
         end
     end
+
+    wire start_pulse_delayed_1;
+    wire start_pulse_delayed_2;
+    pulse_transmitter_delay_2 start_pulse_delayer(
+        .clk(clk),
+        .sys_rst_n(rst_n),
+        .sig_in(start_pulse),
+        .sig_delayed_1_out(start_pulse_delayed_1),
+        .sig_delayed_2_out(start_pulse_delayed_2)
+    );
 
     wire timer_pulse_out;
 

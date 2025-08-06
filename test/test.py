@@ -24,8 +24,8 @@ class Device:
         self.reset_config()
     
     async def init(self):
-        # Set the clock period to 100 ns (10 MHz)
-        clock = Clock(self.dut.clk, 100, units="ns")
+        # We target the clock period to 15.625 ns (64 MHz)
+        clock = Clock(self.dut.clk, 15, units="ns")  # test at 66 MHz, close enough to 64MHz
         cocotb.start_soon(clock.start())
 
         # Interact with your design's registers through this TinyQV class.
@@ -249,7 +249,7 @@ class Device:
                 await ClockCycles(self.dut.clk, 1)
 
 # Basic test
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test1(dut):
     device = Device(dut)
     await device.init()
@@ -263,7 +263,7 @@ async def basic_test1(dut):
     await device.test_expected_waveform(program)
 
 # Basic test
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test2(dut):
     device = Device(dut)
     await device.init()
@@ -277,7 +277,7 @@ async def basic_test2(dut):
     await device.test_expected_waveform(program)
 
 # Basic test
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test3(dut):
     device = Device(dut)
     await device.init()
@@ -294,7 +294,7 @@ async def basic_test3(dut):
     await device.test_expected_waveform(program)
 
 # Basic test with output inverted
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test4(dut):
     device = Device(dut)
     await device.init()
@@ -312,7 +312,7 @@ async def basic_test4(dut):
     await device.test_expected_waveform(program)
 
 # Basic test
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test5(dut):
     device = Device(dut)
     await device.init()
@@ -329,7 +329,7 @@ async def basic_test5(dut):
     await device.test_expected_waveform(program)
 
 # Basic test
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test6(dut):
     device = Device(dut)
     await device.init()
@@ -342,7 +342,7 @@ async def basic_test6(dut):
     await device.test_expected_waveform(program)
 
 # Basic test with prescaler
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test7(dut):
     device = Device(dut)
     await device.init()
@@ -360,7 +360,7 @@ async def basic_test7(dut):
     await device.test_expected_waveform(program)
 
 # Basic test with prescaler
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test8(dut):
     device = Device(dut)
     await device.init()
@@ -378,7 +378,7 @@ async def basic_test8(dut):
     await device.test_expected_waveform(program)
 
 # Basic test with bigger prescaler
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test9(dut):
     device = Device(dut)
     await device.init()
@@ -396,7 +396,7 @@ async def basic_test9(dut):
     await device.test_expected_waveform(program)
 
 # Basic test to test that config_program_end_index is respected
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test10(dut):
     device = Device(dut)
     await device.init()
@@ -417,7 +417,7 @@ async def basic_test10(dut):
     await device.test_expected_waveform(program)
 
 # Basic test to test that config_program_start_index is respected
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test11(dut):
     device = Device(dut)
     await device.init()
@@ -435,7 +435,7 @@ async def basic_test11(dut):
     await device.test_expected_waveform(program)
 
 # Basic test MAX_PROGRAM_LEN number of symbols
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test12(dut):
     device = Device(dut)
     await device.init()
@@ -505,7 +505,7 @@ async def basic_test14(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test1(dut):
     device = Device(dut)
     await device.init()
@@ -523,7 +523,7 @@ async def advanced_test1(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test2(dut):
     device = Device(dut)
     await device.init()
@@ -541,7 +541,7 @@ async def advanced_test2(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test3(dut):
     device = Device(dut)
     await device.init()
@@ -559,7 +559,7 @@ async def advanced_test3(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping MAX_PROGRAM_LOOP_LEN times
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test4(dut):
     device = Device(dut)
     await device.init()
@@ -577,7 +577,7 @@ async def advanced_test4(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test5(dut):
     device = Device(dut)
     await device.init()
@@ -595,7 +595,7 @@ async def advanced_test5(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test6(dut):
     device = Device(dut)
     await device.init()
@@ -613,7 +613,7 @@ async def advanced_test6(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test7(dut):
     device = Device(dut)
     await device.init()
@@ -631,7 +631,7 @@ async def advanced_test7(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping MAX_PROGRAM_LOOP_LEN times
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test8(dut):
     device = Device(dut)
     await device.init()
@@ -649,7 +649,7 @@ async def advanced_test8(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test9(dut):
     device = Device(dut)
     await device.init()
@@ -668,7 +668,7 @@ async def advanced_test9(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test10(dut):
     device = Device(dut)
     await device.init()
@@ -687,7 +687,7 @@ async def advanced_test10(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test11(dut):
     device = Device(dut)
     await device.init()
@@ -706,7 +706,7 @@ async def advanced_test11(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping MAX_PROGRAM_LOOP_LEN times
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test12(dut):
     device = Device(dut)
     await device.init()
@@ -725,7 +725,7 @@ async def advanced_test12(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test13(dut):
     device = Device(dut)
     await device.init()
@@ -744,7 +744,7 @@ async def advanced_test13(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test14(dut):
     device = Device(dut)
     await device.init()
@@ -763,7 +763,7 @@ async def advanced_test14(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test15(dut):
     device = Device(dut)
     await device.init()
@@ -782,7 +782,7 @@ async def advanced_test15(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping MAX_PROGRAM_LOOP_LEN times
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test16(dut):
     device = Device(dut)
     await device.init()
@@ -800,7 +800,7 @@ async def advanced_test16(dut):
     await device.test_expected_waveform(program)
 
 # Advanced test with looping a certain number of counts, with MAX_PROGRAM_LEN number of symbols
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test17(dut):
     device = Device(dut)
     await device.init()
@@ -882,7 +882,7 @@ async def advanced_test19(dut):
 
 # Elite test with looping and config_program_loopback_index set to exactly the program_len - 1
 # So it should run from 0 to len(program) - 1, then the last symbol is repeatedly sent
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def elite_test1(dut):
     device = Device(dut)
     await device.init()
@@ -903,7 +903,7 @@ async def elite_test1(dut):
 
 # Elite test with looping and config_program_loopback_index set to exactly the program_len - 2
 # So it should run from 0 to len(program) - 1, then the last 2 symbols is repeatedly sent
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def elite_test2(dut):
     device = Device(dut)
     await device.init()
@@ -924,7 +924,7 @@ async def elite_test2(dut):
 
 # Elite test with looping and config_program_loopback_index set to exactly to 1
 # So it should run from 0 to len(program) - 1, then the last len(program) - 1 number of symbols is repeatedly sent
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def elite_test3(dut):
     device = Device(dut)
     await device.init()
@@ -945,7 +945,7 @@ async def elite_test3(dut):
 
 # Elite test with looping and config_program_loopback_index set to exactly the program_len - 1, with MAX_PROGRAM_LEN number of symbols
 # So it should run from 0 to len(program) - 1, then the last symbol is repeatedly sent
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def elite_test4(dut):
     device = Device(dut)
     await device.init()
@@ -974,7 +974,7 @@ async def elite_test4(dut):
 
 # Elite test with looping and config_program_loopback_index set to exactly the program_len - 2, with MAX_PROGRAM_LEN number of symbols
 # So it should run from 0 to len(program) - 1, then the last 2 symbols is repeatedly sent
-@cocotb.test(timeout_time=10, timeout_unit="ms")
+@cocotb.test(timeout_time=2, timeout_unit="ms")
 async def elite_test5(dut):
     device = Device(dut)
     await device.init()
