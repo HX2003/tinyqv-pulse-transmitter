@@ -262,6 +262,7 @@ module tqvp_hx2003_pulse_transmitter (
                     prefetched_prescaler <= config_auxillary_prescaler;
                     if(symbol_data[0] == 1'b0) begin
                         prefetched_duration <= config_auxillary_duration_a;
+                    end else begin
                         prefetched_duration <= config_auxillary_duration_b;
                     end
                 end else begin
