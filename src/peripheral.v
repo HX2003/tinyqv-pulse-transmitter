@@ -32,7 +32,7 @@ module tqvp_hx2003_pulse_transmitter (
 );
 
     // Fixed parameters
-    localparam NUM_DATA_REG = 8; // NUM_DATA_REG must be <= 8
+    localparam NUM_DATA_REG = 8; // NUM_DATA_REG must be power of 2 as we depend on the program to rollover, see rollover / wrapping test
 
     // Calculated parameters
     localparam DATA_REG_ADDR_NUM_BITS = $clog2(NUM_DATA_REG);

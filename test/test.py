@@ -14,7 +14,7 @@ from tqv import TinyQV
 # The peripheral number is not used by the test harness.
 PERIPHERAL_NUM = 11
 
-MAX_PROGRAM_LEN = 128
+MAX_PROGRAM_LEN = 128 # must be power of 2 as this also affects the rollover / wrapping
 MAX_PROGRAM_LOOP_LEN = 256 # the actual value set is MAX_PROGRAM_LOOP_LEN - 1
 MAX_TEST_INFINITE_LOOP_LEN = 100
 
@@ -236,6 +236,10 @@ class Device:
                     output_valid = False
             else:
                 program_counter += 1
+
+                # Simulate rollover / wrapping
+                if(program_counter >= MAX_PROGRAM_LEN):
+                    program_counter = 0
         
         if(not self.config_loop_forever): # do not check if config_loop_forever is enabled
             # lets check the idle state is correct for the next n number of cycles for good measure
@@ -341,9 +345,23 @@ async def basic_test6(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
-# Basic test with prescaler
+# Basic test with idle level
 @cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test7(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 1), (0, 0), (0, 0), (1, 0), (0, 1)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_idle_level = 1
+    
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test with prescaler
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def basic_test8(dut):
     device = Device(dut)
     await device.init()
 
@@ -361,7 +379,7 @@ async def basic_test7(dut):
 
 # Basic test with prescaler
 @cocotb.test(timeout_time=2, timeout_unit="ms")
-async def basic_test8(dut):
+async def basic_test9(dut):
     device = Device(dut)
     await device.init()
 
@@ -379,7 +397,7 @@ async def basic_test8(dut):
 
 # Basic test with bigger prescaler
 @cocotb.test(timeout_time=2, timeout_unit="ms")
-async def basic_test9(dut):
+async def basic_test10(dut):
     device = Device(dut)
     await device.init()
 
@@ -397,7 +415,7 @@ async def basic_test9(dut):
 
 # Basic test to test that config_program_end_index is respected
 @cocotb.test(timeout_time=2, timeout_unit="ms")
-async def basic_test10(dut):
+async def basic_test11(dut):
     device = Device(dut)
     await device.init()
 
@@ -418,7 +436,7 @@ async def basic_test10(dut):
 
 # Basic test to test that config_program_start_index is respected
 @cocotb.test(timeout_time=2, timeout_unit="ms")
-async def basic_test11(dut):
+async def basic_test12(dut):
     device = Device(dut)
     await device.init()
 
@@ -434,9 +452,38 @@ async def basic_test11(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
+# Basic test rollover / wrapping test
+# It starts at config_program_start_index, rolls over, 
+# and terminates at config_program_end_index without looping
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def basic_test13(dut):
+    device = Device(dut)
+    await device.init()
+
+    program_len = MAX_PROGRAM_LEN
+    
+    program = []
+
+    random.seed(8888) 
+    for _ in range(program_len):
+        duration_selector = random.randint(0, 1)  # 1-bit selector: 0 or 1
+        transmit_level = random.randint(0, 1)     # 1-bit transmit level: 0 or 1
+        program.append((duration_selector, transmit_level))
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_program_start_index = 77
+    device.config_program_end_index = 33
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 3
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 2
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
 # Basic test MAX_PROGRAM_LEN number of symbols
 @cocotb.test(timeout_time=2, timeout_unit="ms")
-async def basic_test12(dut):
+async def basic_test14(dut):
     device = Device(dut)
     await device.init()
 
@@ -461,7 +508,7 @@ async def basic_test12(dut):
 
 # Basic test MAX_PROGRAM_LEN number of symbols with prescaler
 @cocotb.test(timeout_time=11, timeout_unit="ms")
-async def basic_test13(dut):
+async def basic_test15(dut):
     device = Device(dut)
     await device.init()
 
@@ -487,7 +534,7 @@ async def basic_test13(dut):
 
 # Basic test with infinite loop
 @cocotb.test(timeout_time=11, timeout_unit="ms")
-async def basic_test14(dut):
+async def basic_test16(dut):
     device = Device(dut)
     await device.init()
 
@@ -1002,7 +1049,6 @@ async def elite_test5(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
-# Multi test
 # make sure we can switch different program & configs without residue
 
     #assert await tqv.read_byte_reg(0) == 0x78
