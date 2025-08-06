@@ -113,8 +113,8 @@ module tqvp_hx2003_pulse_transmitter (
             `run_program_status_register <= `run_program_status_register & ~terminate_program;
 
             if (address[5] == 1'b0) begin
-                // Support 32 bit aligned write at address 0, 4, 8, 12
-                // Support 8 bit write at address 0
+                // Support 32 bit aligned write at address 0, 4, 8, 12 for reg_0, reg_1, reg_2, reg_3
+                // Support 8 bit write for lower 8 bits of reg_0 (status information)
                 if (data_write_n == 2'b00 || data_write_n == 2'b10) begin
                     case (address[3:2])
                         2'd0: begin
@@ -171,6 +171,16 @@ module tqvp_hx2003_pulse_transmitter (
         .rst_n(rst_n),
         .sig_in(carrier_out),
         .pulse_out(carrier_pulse_out)
+    );
+
+    wire start_pulse_delayed_1;
+    wire start_pulse_delayed_2;
+    pulse_transmitter_delay_2 start_pulse_delayer(
+        .clk(clk),
+        .sys_rst_n(rst_n),
+        .sig_in(start_pulse),
+        .sig_delayed_1_out(start_pulse_delayed_1),
+        .sig_delayed_2_out(start_pulse_delayed_2)
     );
 
     always @(posedge clk) begin
@@ -273,7 +283,10 @@ module tqvp_hx2003_pulse_transmitter (
         end
     end
 
-    reg valid_output;
+    // The output is only valid when `run_program_status_register is high,
+    // except for the first few cycles after starting the program.
+    // This is because it takes some cycles to fetch and prefetch the symbols.
+    wire valid_output = `run_program_status_register && !start_pulse && !start_pulse_delayed_1 && !start_pulse_delayed_2;
 
     // The program counter should increment:
     // once for start_pulse (we fetch the current symbol and increment program_counter)
@@ -284,10 +297,8 @@ module tqvp_hx2003_pulse_transmitter (
     reg [8:0] program_loop_counter; // add 1 more bit for the rollover detector
     reg program_end_of_file;
     reg program_end_of_file_delayed_1;
-    reg start_pulse_delayed_1;
-    reg start_pulse_delayed_2;
     reg timer_enabled;
-     
+
     always @(posedge clk) begin
         if (!rst_n || !`run_program_status_register) begin
             program_loop_counter <= {1'b0, config_program_loop_count} - 1;
@@ -295,22 +306,9 @@ module tqvp_hx2003_pulse_transmitter (
             program_end_of_file <= 0;
             program_end_of_file_delayed_1 <= 0;
             program_counter <= 0;
-            valid_output <= 0;
-            start_pulse_delayed_1 <= 0;
-            start_pulse_delayed_2 <= 0;
         end else begin
-            start_pulse_delayed_1 <= start_pulse;
-            start_pulse_delayed_2 <= start_pulse_delayed_1;
-
             if (start_pulse_delayed_1) begin
                 timer_enabled <= 1;
-            end
-
-            if (start_pulse_delayed_2) begin
-                // It takes 1 cycle to fetch the pulse information,
-                // and another 1 cycle for the timer to start
-                // so the initial output is not valid until 2 cycle later 
-                valid_output <= 1;
             end
 
             if (program_counter_increment_trigger) begin
@@ -333,12 +331,6 @@ module tqvp_hx2003_pulse_transmitter (
             if (timer_trigger) begin
                 program_end_of_file_delayed_1 <= program_end_of_file;
             end
-
-            if (timer_trigger && program_end_of_file_delayed_1) begin
-                valid_output <= 0;
-            end
-
-            
         end
     end
 
