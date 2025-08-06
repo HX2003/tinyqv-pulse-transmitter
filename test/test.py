@@ -38,14 +38,15 @@ class Device:
         # Reset
         await self.tqv.reset()
          
-    # only sets it, does not actually write to the device
+    # only sets the member variables, does not actually write to the device
     def reset_config(self):
+        self.run_program = 0
         self.timer_interrupt_clear = 0
         self.loop_interrupt_clear = 0
         self.program_end_interrupt_clear = 0
-        self.program_counter_128_interrupt_clear = 0
-        self.run_program = 0
-        self.config_timer_interrupt_en = 1
+        self.program_counter_64_interrupt_clear = 0
+    
+        self.config_timer_interrupt_en = 0
         self.config_loop_interrupt_en = 0
         self.config_program_end_interrupt_en = 0
         self.config_program_counter_64_interrupt_en = 0
@@ -73,11 +74,11 @@ class Device:
          
 
     async def write_reg_0(self):
-        reg0 = self.timer_interrupt_clear \
-            | (self.loop_interrupt_clear << 1) \
-            | (self.program_end_interrupt_clear << 2) \
-            | (self.program_counter_128_interrupt_clear << 3) \
-            | (self.run_program << 7) \
+        reg0 = self.run_program \
+            | (self.timer_interrupt_clear << 1) \
+            | (self.loop_interrupt_clear << 2) \
+            | (self.program_end_interrupt_clear << 3) \
+            | (self.program_counter_64_interrupt_clear << 4) \
             | (self.config_timer_interrupt_en << 8) \
             | (self.config_loop_interrupt_en << 9) \
             | (self.config_program_end_interrupt_en << 10) \
@@ -113,17 +114,18 @@ class Device:
 
     """ Start the program (also clears any interrupt) """
     async def start_program(self):
+        self.run_program = 1
         self.timer_interrupt_clear = 1
         self.loop_interrupt_clear = 1
         self.program_end_interrupt_clear = 1
-        self.program_counter_128_interrupt_clear = 1
-        self.run_program = 1
+        self.program_counter_64_interrupt_clear = 1
+        
         await self.write_reg_0()
         
         self.timer_interrupt_clear = 0
         self.loop_interrupt_clear = 0
         self.program_end_interrupt_clear = 0
-        self.program_counter_128_interrupt_clear = 0
+        self.program_counter_64_interrupt_clear = 0
     
     # for a symbol tuple[int, int], 
     # the first value is the duration selector
@@ -222,7 +224,7 @@ class Device:
             expected_level = waveform[program_counter][1]
             
             for i in range(duration): # check every cycle for thoroughness
-                assert self.dut.uo_out[2].value == expected_level
+                assert self.dut.uo_out[4].value == expected_level
                 await ClockCycles(self.dut.clk, 1) 
 
             if(program_counter == self.config_program_end_index):
@@ -234,17 +236,7 @@ class Device:
                     output_valid = False
             else:
                 program_counter += 1
-            
-
-        """for w in waveform:
-            duration = w[0]
-            total_duration += duration
-            expected_level = w[1]
-
-            for i in range(duration):
-                assert self.dut.uo_out[2].value == expected_level
-                await ClockCycles(self.dut.clk, 1)"""
-
+        
         if(not self.config_loop_forever): # do not check if config_loop_forever is enabled
             # lets check the idle state is correct for the next n number of cycles for good measure
             total_duration = 999
@@ -253,7 +245,7 @@ class Device:
                 total_duration += duration
 
             for i in range(total_duration):
-                assert self.dut.uo_out[2].value == (self.config_idle_level ^ self.config_invert_output)
+                assert self.dut.uo_out[4].value == (self.config_idle_level ^ self.config_invert_output)
                 await ClockCycles(self.dut.clk, 1)
 
 # Basic test
@@ -416,7 +408,6 @@ async def basic_test10(dut):
     device.config_main_low_duration_b = 3
     device.config_main_high_duration_a = 0
     device.config_main_high_duration_b = 2
-    device.config_main_prescaler = 9
 
     # fill in the rest of the buffer with some data
     program_with_extras = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1)]
@@ -425,9 +416,27 @@ async def basic_test10(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
-# Basic test MAX_PROGRAM_LEN number of symbols
+# Basic test to test that config_program_start_index is respected
 @cocotb.test(timeout_time=10, timeout_unit="ms")
 async def basic_test11(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_program_start_index = 3
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 3
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 2
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Basic test MAX_PROGRAM_LEN number of symbols
+@cocotb.test(timeout_time=10, timeout_unit="ms")
+async def basic_test12(dut):
     device = Device(dut)
     await device.init()
 
@@ -452,7 +461,7 @@ async def basic_test11(dut):
 
 # Basic test MAX_PROGRAM_LEN number of symbols with prescaler
 @cocotb.test(timeout_time=11, timeout_unit="ms")
-async def basic_test12(dut):
+async def basic_test13(dut):
     device = Device(dut)
     await device.init()
 
@@ -478,7 +487,7 @@ async def basic_test12(dut):
 
 # Basic test with infinite loop
 @cocotb.test(timeout_time=11, timeout_unit="ms")
-async def basic_test13(dut):
+async def basic_test14(dut):
     device = Device(dut)
     await device.init()
 

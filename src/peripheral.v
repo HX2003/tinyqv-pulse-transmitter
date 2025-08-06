@@ -39,24 +39,22 @@ module tqvp_hx2003_pulse_transmitter (
     
     // The various configuration registers
     reg [31:0] reg_0;
-    // First 8 bits (Interrupt flags and start_program)
-    `define interrupt_status_register reg_0[3:0]
-    wire _unused_reg_0_a = &{reg_0[6:4], 1'b0};
-    `define run_program_status_register reg_0[7]
-    wire _debug_run_program_status_register = reg_0[7];
-    // Next 8 bits (Interrupt enable and other configs)
-    wire [3:0] config_interrupt_enable_mask = reg_0[11:8];
+    `define run_program_status_register reg_0[0]
+    wire _debug_run_program_status_register = reg_0[0];
+    `define interrupt_status_register reg_0[4:1]
+    wire _debug_interrupt_status_register = reg_0[4:1];
+    wire _unused_reg_0_a = &{reg_0[7:5], 1'b0};
+    wire config_interrupt_enable_mask = reg_0[11:8];
     wire config_loop_forever = reg_0[12];
     wire config_idle_level = reg_0[13];
     wire config_invert_output = reg_0[14];
     wire config_carrier_en = reg_0[15];
-    // Next 16 bits (Carrier duration)
     wire [15:0] config_carrier_duration = reg_0[31:16];
 
 
     reg [31:0] reg_1;
-    wire [6:0] config_program_start_index = reg_1[7:0];
-    wire _unused_reg_1_a = &{reg_1[8], 1'b0};
+    wire [6:0] config_program_start_index = reg_1[6:0];
+    wire _unused_reg_1_a = &{reg_1[7], 1'b0};
     wire [6:0] config_program_end_index = reg_1[14:8];
     wire _unused_reg_1_b = &{reg_1[15], 1'b0};
     wire [7:0] config_program_loop_count = reg_1[23:16];
@@ -82,9 +80,9 @@ module tqvp_hx2003_pulse_transmitter (
     assign user_interrupt = `interrupt_status_register > 0;
     
     wire [3:0] interrupt_event_flag = {
-        1'b0, // bit 3 (program_counter_64_interrupt)
-        1'b0, // bit 2 (program_end_interrupt)
-        1'b0, // bit 1 (loop_interrupt)
+        program_counter_64_interrupt, // bit 3 (program_counter_64_interrupt)
+        terminate_program, // bit 2 (program_end_interrupt)
+        loop_interrupt, // bit 1 (loop_interrupt)
         timer_pulse_out // bit 0 (timer_interrupt)
     } & config_interrupt_enable_mask;
 
@@ -121,18 +119,20 @@ module tqvp_hx2003_pulse_transmitter (
                 if (data_write_n == 2'b00 || data_write_n == 2'b10) begin
                     case (address[3:2])
                         2'd0: begin
-                            // reg_0[3:0] stores the interrupt values,
-                            // bit 3 (program_counter_64_interrupt)
-                            // bit 2 (program_end_interrupt)
-                            // bit 1 (loop_interrupt)
-                            // bit 0 (timer_interrupt)
-                            // write 1 to the desired interrupt bit to clear it
-                            `interrupt_status_register <= (`interrupt_status_register & ~data_in[3:0]) | interrupt_event_flag;
-                            // BITS 4 to 6 are not used here
-                            // reg_0[7] stores whether the program is running,
+                            // reg_0[0] stores whether the program is running,
                             // write 1 to start the program, (does not restart if already started)
                             // write 0 to stop the program
-                            `run_program_status_register <= data_in[7];
+                            `run_program_status_register <= data_in[0];
+
+                            // reg_0[4:1] stores the interrupt values,
+                            // bit 1 (timer_interrupt)
+                            // bit 2 (loop_interrupt) 
+                            // bit 3 (program_end_interrupt) 
+                            // bit 4 (program_counter_64_interrupt)
+                            // write 1 to the desired interrupt bit to clear it
+                            `interrupt_status_register <= (`interrupt_status_register & ~data_in[4:1]) | interrupt_event_flag;
+                            
+                            reg_0[7:5] <= data_in[7:5];
 
                             if (data_write_n == 2'b10) begin
                                 // 32 bit write (write the remaining 24 bits)
@@ -208,7 +208,7 @@ module tqvp_hx2003_pulse_transmitter (
     pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
-        .en(timer_enabled),
+        .en(`run_program_status_register && !start_pulse && !start_pulse_delayed_1),
         .prescaler(prefetched_prescaler),
         .duration(prefetched_duration),
         .pulse_out(timer_pulse_out)
@@ -300,21 +300,26 @@ module tqvp_hx2003_pulse_transmitter (
     reg [8:0] program_loop_counter; // add 1 more bit for the rollover detector
     reg program_end_of_file;
     reg program_end_of_file_delayed_1;
-    reg timer_enabled;
+    reg loop_interrupt; // should only be activated for 1 pulse
+    reg program_counter_64_interrupt; // should only be activated for 1 pulse
 
     always @(posedge clk) begin
         if (!rst_n || !`run_program_status_register) begin
             program_loop_counter <= {1'b0, config_program_loop_count} - 1;
-            timer_enabled <= 0;
             program_end_of_file <= 0;
             program_end_of_file_delayed_1 <= 0;
             program_counter <= config_program_start_index;
+            loop_interrupt <= 0;
+            program_counter_64_interrupt <= 0;
         end else begin
-            if (start_pulse_delayed_1) begin
-                timer_enabled <= 1;
-            end
+            loop_interrupt <= 0; // default value, can be overidden later
+            program_counter_64_interrupt <= 0; // default value, can be overidden later
 
             if (program_counter_increment_trigger) begin
+                if (program_counter == 64) begin
+                    program_counter_64_interrupt <= 1'b1;
+                end
+
                 if (program_counter == config_program_end_index) begin
                     if (!config_loop_forever && (program_loop_counter[8] == 1'b1)) begin
                         // Set program_end_of_file
@@ -324,7 +329,7 @@ module tqvp_hx2003_pulse_transmitter (
                         // We want to loop, set the program counter
                         program_counter <= config_program_loopback_index;
                         program_loop_counter <= program_loop_counter - 1;
-
+                        loop_interrupt <= 1'b1;
                     end
                 end else begin
                     program_counter <= program_counter + 1;
@@ -340,16 +345,13 @@ module tqvp_hx2003_pulse_transmitter (
     wire terminate_program = timer_trigger && program_end_of_file_delayed_1;
 
     // Pin outputs
-    assign uo_out[0] = 0;
-    assign uo_out[1] = carrier_out;
-    assign uo_out[2] = final_output;
+    assign uo_out[1:0] = 0;
+    assign uo_out[2] = carrier_out;
     assign uo_out[3] = valid_output;
-    assign uo_out[7:4] = 0;
-
+    assign uo_out[7:4] = {final_output, final_output, final_output, final_output};
+  
     // Read address doesn't matter
-    assign data_out[3:0] = `interrupt_status_register;
-    assign data_out[6:4] = 3'b0;
-    assign data_out[7] = `run_program_status_register;
+    assign data_out[7:0] = reg_0[7:0];
     assign data_out[14:8] = program_counter;
     assign data_out[15] = 1'b0;
     assign data_out[24:16] = program_loop_counter; // 9 bits
