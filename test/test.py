@@ -44,8 +44,8 @@ class Device:
         self.loop_interrupt_clear = 0
         self.program_end_interrupt_clear = 0
         self.program_counter_128_interrupt_clear = 0
-        self.config_start = 0
-        self.config_timer_interrupt_en = 0
+        self.run_program = 0
+        self.config_timer_interrupt_en = 1
         self.config_loop_interrupt_en = 0
         self.config_program_end_interrupt_en = 0
         self.config_program_counter_64_interrupt_en = 0
@@ -75,7 +75,7 @@ class Device:
             | (self.loop_interrupt_clear << 1) \
             | (self.program_end_interrupt_clear << 2) \
             | (self.program_counter_128_interrupt_clear << 3) \
-            | (self.config_start << 7) \
+            | (self.run_program << 7) \
             | (self.config_timer_interrupt_en << 8) \
             | (self.config_loop_interrupt_en << 9) \
             | (self.config_program_end_interrupt_en << 10) \
@@ -114,22 +114,20 @@ class Device:
         self.loop_interrupt_clear = 1
         self.program_end_interrupt_clear = 1
         self.program_counter_128_interrupt_clear = 1
-        self.config_start = 1
+        self.run_program = 1
         await self.write_reg_0()
         
         self.timer_interrupt_clear = 0
         self.loop_interrupt_clear = 0
         self.program_end_interrupt_clear = 0
         self.program_counter_128_interrupt_clear = 0
-         
-         
     
     # for a symbol tuple[int, int], 
     # the first value is the duration selector
     # the second value is the transmit level
     async def write_program(self, program: list[tuple[int, int]]):
-        # config_start must be 0, as the program must not be started yet
-        assert self.config_start == 0
+        # run_program must be 0, as the program must be running yet
+        assert self.run_program == 0
 
         await self.write_reg_0()
         await self.write_reg_1()
