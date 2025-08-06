@@ -41,7 +41,7 @@ module tqvp_hx2003_pulse_transmitter (
     reg [31:0] reg_0;
     // First 8 bits (Interrupt flags and config start)
     wire [3:0] interrupt_event_flag = {
-        1'b0, // bit 3 (program_counter_128_interrupt)
+        1'b0, // bit 3 (program_counter_64_interrupt)
         1'b0, // bit 2 (program_end_interrupt)
         1'b0, // bit 1 (loop_interrupt)
         timer_pulse_out // bit 0 (timer_interrupt)
@@ -52,7 +52,7 @@ module tqvp_hx2003_pulse_transmitter (
     wire config_timer_interrupt_en = reg_0[8];
     wire config_loop_interrupt_en = reg_0[9];
     wire config_program_end_interrupt_en = reg_0[10];
-    wire config_program_counter_128_interrupt_en = reg_0[11];
+    wire config_program_counter_64_interrupt_en = reg_0[11];
     wire config_loop_forever = reg_0[12];
     wire config_idle_level = reg_0[13];
     wire config_invert_output = reg_0[14];
@@ -67,6 +67,7 @@ module tqvp_hx2003_pulse_transmitter (
     wire [6:0] config_program_end_index = reg_1[22:16];
     wire _unused_reg_1_b = &{reg_1[23], 1'b0};
     wire [3:0] config_main_prescaler = reg_1[27:24];
+    wire _unused_reg_1_c = &{reg_0[31:28], 1'b0};
 
     reg [31:0] reg_2;
     wire [7:0] config_main_low_duration_a = reg_2[7:0];
@@ -79,6 +80,7 @@ module tqvp_hx2003_pulse_transmitter (
     wire [7:0] config_auxillary_duration_a = reg_3[15:8];
     wire [7:0] config_auxillary_duration_b = reg_3[23:16];
     wire [3:0] config_auxillary_prescaler = reg_3[27:24];
+    wire _unused_reg_3_a = &{reg_3[31:28], 1'b0};
 
     // The rest of our code
     wire start_pulse;
