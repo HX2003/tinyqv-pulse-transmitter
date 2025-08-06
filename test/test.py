@@ -52,7 +52,7 @@ class Device:
         self.config_loop_forever = 0
         self.config_idle_level = 0
         self.config_invert_output = 0
-        self.config_carrier_en = 0 
+        self.config_carrier_en = 0
         self.config_carrier_duration = 0
 
         self.config_program_loop_count = 0
