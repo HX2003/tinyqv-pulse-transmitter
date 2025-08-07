@@ -185,7 +185,8 @@ class Device:
                     case 3: duration = self.config_main_high_duration_b
             
             expected_output = symbol_transmit_level ^ self.config_invert_output
-            expected_duration = ((duration + 1) << prescaler) + 1
+            expected_duration = (duration << prescaler) + 2
+            #expected_duration = ((duration + 1) << prescaler) + 1
             waveform.append((expected_duration, expected_output))
 
         # example waveform [(2, 1), (3, 0), (4, 1), (4, 1), (5, 0)] 
@@ -926,6 +927,67 @@ async def advanced_test19(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
+# Advanced test with auxillary duration
+@cocotb.test(timeout_time=15, timeout_unit="ms")
+async def advanced_test20(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1)]
+
+    device.config_program_end_index = len(program) - 1
+    device.config_main_low_duration_b = 0
+    device.config_main_low_duration_a = 1
+    device.config_main_high_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_auxillary_duration_a = 42
+    device.config_auxillary_duration_b = 98
+    device.config_auxillary_mask = 0b10101010
+     
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Advanced test with auxillary duration and auxillary prescaler
+@cocotb.test(timeout_time=15, timeout_unit="ms")
+async def advanced_test21(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1)]
+
+    device.config_program_end_index = len(program) - 1
+    device.config_main_low_duration_b = 0
+    device.config_main_low_duration_a = 1
+    device.config_main_high_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_auxillary_duration_a = 2 #33
+    device.config_auxillary_duration_b = 2 #127
+    device.config_auxillary_prescaler = 1
+    device.config_auxillary_mask = 0b10101010
+     
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+# Advanced test with auxillary duration and larger auxillary prescaler
+@cocotb.test(timeout_time=15, timeout_unit="ms")
+async def advanced_test22(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1), (0, 0), (1, 1), (1, 0), (0, 0), (1, 1), (1, 0), (1, 0), (0, 1)]
+
+    device.config_program_end_index = len(program) - 1
+    device.config_main_low_duration_b = 0
+    device.config_main_low_duration_a = 1
+    device.config_main_high_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_auxillary_duration_a = 33
+    device.config_auxillary_duration_b = 127
+    device.config_auxillary_prescaler = 6
+    device.config_auxillary_mask = 0b10101010
+     
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
 
 # Elite test with looping and config_program_loopback_index set to exactly the program_len - 1
 # So it should run from 0 to len(program) - 1, then the last symbol is repeatedly sent
