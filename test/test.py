@@ -77,7 +77,7 @@ class Device:
 
     async def write8_reg_0(self):
         reg0 = self._gen_reg_0()
-        await self.tqv.write_byte_reg(0, reg0)
+        await self.tqv.write_byte_reg(0, reg0 & 0xFF)
 
     async def write32_reg_0(self):
         reg0 = self._gen_reg_0()
