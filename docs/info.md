@@ -26,7 +26,7 @@ Each symbol is encoded as follows:
 |----------------|-----------------|
 | TRANSMIT_LEVEL | DURATION_SELECT |
 
-For the first 8 symbols in memory, a 8 bit `auxillary_mask` is also avaliable. Together, a 8 bit duration can be selected.
+For the first 8 symbols in memory, a 8 bit `auxillary_mask` is also available. Together, a 8 bit duration can be selected.
 
 | Auxillary Bit | Symbol Bit 1 | Symbol Bit 0 | Evaluated Duration   |
 |---------------|--------------|--------------|----------------------|

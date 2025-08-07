@@ -217,13 +217,11 @@ module tqvp_hx2003_pulse_transmitter (
         .pulse_out(timer_pulse_out)
     );
 
-    reg [31:0] data_32;
+    wire [31:0] data_32 = PROGRAM_DATA_MEM[program_counter[6:4]];
     reg [1:0] symbol_data;
 
     // Combinatorics, multiplexer to obtain 2 bit symbol_data based on program_counter
     always @(*) begin
-        data_32 = PROGRAM_DATA_MEM[program_counter[6:4]];
-
         // Extract 2-bit chunk based on sel
         case (program_counter[3:0])
             4'd0:  symbol_data = data_32[1:0];
