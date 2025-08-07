@@ -19,14 +19,14 @@ Peripheral index: 11
 
 ## What it does
 
-Pulse transmitter is a peripheral that can transmit up to 128 binary symbols, each having varying durations. You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up to 256 times or loop forever. Due to the limited amount of memory available, a 6 x 8 bit lookup table is used for the duration.
- 
-Each symbol is encoded as follows:
+Pulse transmitter is a peripheral that can transmit up to 128 binary symbols, each having varying durations. You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up to 256 times or loop forever.
+
+Due to the limited amount of memory available, each symbol is encoded as follows:
 | Bit 1          | Bit 0           |
 |----------------|-----------------|
 | TRANSMIT_LEVEL | DURATION_SELECT |
 
-For the first 8 symbols in memory, a 8 bit `auxillary_mask` is also available. Together, a 8 bit duration can be selected.
+For the first 8 symbols at address 0x00, a 8 bit `auxillary_mask` is also available. Together, a 8 bit duration can be selected from one of the six lookup tables.
 
 | Auxillary Bit | Symbol Bit 1 | Symbol Bit 0 | Evaluated Duration   |
 |---------------|--------------|--------------|----------------------|
@@ -36,6 +36,9 @@ For the first 8 symbols in memory, a 8 bit `auxillary_mask` is also available. T
 | 0             | 1            | 1            | main_high_duration_b |
 | 1             | X            | 0            | auxillary_duration_a |
 | 1             | X            | 1            | auxillary_duration_b |
+
+There is also a 4 bit prescaler value each for main and auxillary.
+Combined together, total duration ticks = (duration + 2) << prescaler.
 
 ## Register map
 | Address     | Name  | Access | Description      |
@@ -112,7 +115,6 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 | 31:25 | *unused* (value of 0)               |
 
 ## How to test
-
 
 ## External hardware
 You may wish to test with a IR LED, I'm not sure about the current limits of the output pins, so use a buffer or transistor to drive the LED.

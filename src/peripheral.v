@@ -206,7 +206,7 @@ module tqvp_hx2003_pulse_transmitter (
 
     wire timer_request_data;
     wire timer_pulse_out;
-    wire timer_trigger = start_pulse_delayed_1 || timer_pulse_out;
+    wire timer_pulse_out_with_initial = start_pulse_delayed_1 || timer_pulse_out;
     reg [7:0] duration;
     reg [3:0] prescaler;
     pulse_transmitter_countdown_timer countdown_timer(
@@ -270,7 +270,7 @@ module tqvp_hx2003_pulse_transmitter (
         if (!rst_n) begin
             saved_transmit_level <= 0;
         end else begin
-            if(timer_trigger) begin
+            if(timer_pulse_out_with_initial) begin
                 // save the transmit_level
                 saved_transmit_level <= transmit_level;
             end
@@ -290,7 +290,6 @@ module tqvp_hx2003_pulse_transmitter (
     reg [6:0] program_counter;
     reg [8:0] program_loop_counter; // add 1 more bit for the rollover detector
     reg program_end_of_file;
-    reg program_end_of_file_delayed_1;
     reg loop_interrupt; // should only be activated for 1 pulse
     reg program_counter_64_interrupt; // should only be activated for 1 pulse
 
@@ -298,7 +297,6 @@ module tqvp_hx2003_pulse_transmitter (
         if (!rst_n || !`run_program_status_register) begin
             program_loop_counter <= {1'b0, config_program_loop_count} - 1;
             program_end_of_file <= 0;
-            program_end_of_file_delayed_1 <= 0;
             program_counter <= config_program_start_index;
             loop_interrupt <= 0;
             program_counter_64_interrupt <= 0;
@@ -326,14 +324,10 @@ module tqvp_hx2003_pulse_transmitter (
                     program_counter <= program_counter + 1;
                 end
             end
-
-            if (timer_trigger) begin
-                program_end_of_file_delayed_1 <= program_end_of_file;
-            end
         end
     end
 
-    wire terminate_program = timer_trigger && program_end_of_file;
+    wire terminate_program = timer_pulse_out_with_initial && program_end_of_file;
 
     // Pin outputs
     assign uo_out[1:0] = 0;
