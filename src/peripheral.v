@@ -158,7 +158,7 @@ module tqvp_hx2003_pulse_transmitter (
     end
 
     // Apply optional carrier
-    wire modulated_output = config_carrier_en ? (transmit_level && carrier_out): transmit_level;
+    wire modulated_output = config_carrier_en ? (saved_transmit_level && carrier_out): saved_transmit_level;
 
     // Insert idle level when not transmitting
     wire active_or_idle_output = (valid_output) ? modulated_output : config_idle_level;
@@ -203,22 +203,25 @@ module tqvp_hx2003_pulse_transmitter (
         .sig_delayed_2_out(start_pulse_delayed_2)
     );
 
-    wire timer_pulse_out;
 
-    wire timer_trigger = start_pulse_delayed_2 || timer_pulse_out;
-    reg [7:0] prefetched_duration;
-    reg [3:0] prefetched_prescaler;
+    wire timer_request_data;
+    wire timer_pulse_out;
+    wire timer_trigger = start_pulse_delayed_1 || timer_pulse_out;
+    reg [7:0] duration;
+    reg [3:0] prescaler;
     pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
         .en(`run_program_status_register && !start_pulse && !start_pulse_delayed_1),
-        .prescaler(prefetched_prescaler),
-        .duration(prefetched_duration),
+        .prescaler(prescaler),
+        .duration(duration),
+        .request_data(timer_request_data),
         .pulse_out(timer_pulse_out)
     );
 
     wire [31:0] data_32 = PROGRAM_DATA_MEM[program_counter[6:4]];
     reg [1:0] symbol_data;
+    reg transmit_level;
 
     // Combinatorics, multiplexer to obtain 2 bit symbol_data based on program_counter
     always @(*) begin
@@ -241,49 +244,35 @@ module tqvp_hx2003_pulse_transmitter (
             4'd14: symbol_data = data_32[29:28];
             4'd15: symbol_data = data_32[31:30];
         endcase
-    end
-    
-    wire use_auxillary = program_counter < 8 && config_auxillary_mask[program_counter[2:0]];
 
-    reg prefetched_transmit_level;
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            prefetched_transmit_level <= 0;
-            prefetched_duration <= 0;
-            prefetched_prescaler <= 0;
-        end else begin
-            if(program_counter_increment_trigger) begin
-                // fetch the pulse information, and store it
-                prefetched_transmit_level <= symbol_data[1];
+        transmit_level = symbol_data[1];
 
-                if (use_auxillary) begin
-                    prefetched_prescaler <= config_auxillary_prescaler;
-                    if(symbol_data[0] == 1'b0) begin
-                        prefetched_duration <= config_auxillary_duration_a;
-                    end else begin
-                        prefetched_duration <= config_auxillary_duration_b;
-                    end
-                end else begin
-                    prefetched_prescaler <= config_main_prescaler;
-                    case (symbol_data)
-                        2'd0: prefetched_duration <= config_main_low_duration_a;
-                        2'd1: prefetched_duration <= config_main_low_duration_b;
-                        2'd2: prefetched_duration <= config_main_high_duration_a;
-                        2'd3: prefetched_duration <= config_main_high_duration_b;
-                    endcase
-                end
+        if (program_counter < 8 && config_auxillary_mask[program_counter[2:0]]) begin
+            prescaler = config_auxillary_prescaler;
+            if(symbol_data[0] == 1'b0) begin
+                duration = config_auxillary_duration_a;
+            end else begin
+                duration = config_auxillary_duration_b;
             end
+        end else begin
+            prescaler = config_main_prescaler;
+            case (symbol_data)
+                2'd0: duration = config_main_low_duration_a;
+                2'd1: duration = config_main_low_duration_b;
+                2'd2: duration = config_main_high_duration_a;
+                2'd3: duration = config_main_high_duration_b;
+            endcase
         end
     end
- 
-    reg transmit_level;
+    
+    reg saved_transmit_level;
     always @(posedge clk) begin
         if (!rst_n) begin
-            transmit_level <= 0;
+            saved_transmit_level <= 0;
         end else begin
             if(timer_trigger) begin
                 // save the transmit_level
-                transmit_level <= prefetched_transmit_level;
+                saved_transmit_level <= transmit_level;
             end
         end
     end
@@ -296,7 +285,7 @@ module tqvp_hx2003_pulse_transmitter (
     // The program counter should increment:
     // once for start_pulse (we fetch the current symbol and increment program_counter)
     // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
-    wire program_counter_increment_trigger = start_pulse || timer_trigger;
+    wire program_counter_increment_trigger = timer_request_data;
     
     reg [6:0] program_counter;
     reg [8:0] program_loop_counter; // add 1 more bit for the rollover detector
@@ -344,7 +333,7 @@ module tqvp_hx2003_pulse_transmitter (
         end
     end
 
-    wire terminate_program = timer_trigger && program_end_of_file_delayed_1;
+    wire terminate_program = timer_trigger && program_end_of_file;
 
     // Pin outputs
     assign uo_out[1:0] = 0;

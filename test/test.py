@@ -185,7 +185,8 @@ class Device:
                     case 3: duration = self.config_main_high_duration_b
             
             expected_output = symbol_transmit_level ^ self.config_invert_output
-            expected_duration = ((duration + 1) << prescaler) + 1
+            expected_duration = (duration + 2) << prescaler
+            #expected_duration = ((duration + 1) << prescaler) + 1
             waveform.append((expected_duration, expected_output))
 
         # example waveform [(2, 1), (3, 0), (4, 1), (4, 1), (5, 0)] 
@@ -224,7 +225,7 @@ class Device:
             expected_level = waveform[program_counter][1]
             
             for i in range(duration): # check every cycle for thoroughness
-                #assert self.dut.uo_out[4].value == expected_level
+                assert self.dut.uo_out[4].value == expected_level
                 await ClockCycles(self.dut.clk, 1) 
 
             if(program_counter == self.config_program_end_index):
@@ -251,7 +252,7 @@ class Device:
             for i in range(total_duration):
                 assert self.dut.uo_out[4].value == (self.config_idle_level ^ self.config_invert_output)
                 await ClockCycles(self.dut.clk, 1)
-"""
+
 # Basic test
 @cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_test1(dut):
@@ -290,9 +291,9 @@ async def basic_test3(dut):
     
     device.config_program_end_index = len(program) - 1
     device.config_main_low_duration_a = 1
-    device.config_main_low_duration_b = 3
+    device.config_main_low_duration_b = 2
     device.config_main_high_duration_a = 0
-    device.config_main_high_duration_b = 2
+    device.config_main_high_duration_b = 3
 
     await device.write_program(program)
     await device.test_expected_waveform(program)
@@ -945,7 +946,7 @@ async def advanced_test20(dut):
      
     await device.write_program(program)
     await device.test_expected_waveform(program)
-"""
+
 # Advanced test with auxillary duration and auxillary prescaler
 @cocotb.test(timeout_time=15, timeout_unit="ms")
 async def advanced_test21(dut):
@@ -966,7 +967,7 @@ async def advanced_test21(dut):
      
     await device.write_program(program)
     await device.test_expected_waveform(program)
-"""
+
 # Advanced test with auxillary duration and larger auxillary prescaler
 @cocotb.test(timeout_time=15, timeout_unit="ms")
 async def advanced_test22(dut):
@@ -1109,7 +1110,7 @@ async def elite_test5(dut):
 
     await device.write_program(program)
     await device.test_expected_waveform(program)
-"""
+
 # make sure we can switch different program & configs without residue
 
     #assert await tqv.read_byte_reg(0) == 0x78
