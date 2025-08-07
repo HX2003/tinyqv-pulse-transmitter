@@ -194,7 +194,8 @@ class Device:
          
         # lets start the test
         # the program must be already configured
-        await self.start_program()
+        # Must run concurrently
+        cocotb.start_soon(self.start_program()) #await self.start_program()
 
         # Wait until valid output goes high
         while(self.dut.uo_out[3].value == 0):
