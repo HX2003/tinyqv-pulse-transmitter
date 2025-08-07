@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: © 2025 Tiny Tapeout
+# SPDX-FileCopyrightText: © 2025 HX2003
 # SPDX-License-Identifier: Apache-2.0
 
 import random

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025 HX2003
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Simple synchronous falling edge detector
 
 module pulse_transmitter_falling_edge_detector (

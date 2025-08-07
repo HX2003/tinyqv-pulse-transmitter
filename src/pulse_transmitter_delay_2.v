@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025 HX2003
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 module pulse_transmitter_delay_2 (
     input  wire clk,
     input  wire sys_rst_n,

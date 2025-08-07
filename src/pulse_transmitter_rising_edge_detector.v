@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025 HX2003
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // Simple synchronous rising edge detector
 
 module pulse_transmitter_rising_edge_detector (

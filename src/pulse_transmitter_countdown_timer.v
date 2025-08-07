@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2025 HX2003
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 // This module implements a repeating countdown timer.
 // When en is 1, it generates a 1-cycle pulse after (duration + 2) << prescaler) number of clock cycles
 // 
