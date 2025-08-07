@@ -41,12 +41,13 @@ class Device:
          
     # only sets the member variables, does not actually write to the device
     def reset_config(self):
-        self.run_program = 0
-        self.timer_interrupt_clear = 0
-        self.loop_interrupt_clear = 0
-        self.program_end_interrupt_clear = 0
-        self.program_counter_64_interrupt_clear = 0
-    
+        self._clear_timer_interrupt = 0
+        self._clear_loop_interrupt = 0
+        self._clear_program_end_interrupt = 0
+        self._clear_program_counter_64_interrupt = 0
+        self._start_program = 0
+        self._stop_program = 0
+
         self.config_timer_interrupt_en = 0
         self.config_loop_interrupt_en = 0
         self.config_program_end_interrupt_en = 0
@@ -74,12 +75,21 @@ class Device:
         self.config_main_prescaler = 0
          
 
-    async def write_reg_0(self):
-        reg0 = self.run_program \
-            | (self.timer_interrupt_clear << 1) \
-            | (self.loop_interrupt_clear << 2) \
-            | (self.program_end_interrupt_clear << 3) \
-            | (self.program_counter_64_interrupt_clear << 4) \
+    async def write8_reg_0(self):
+        reg0 = self._gen_reg_0()
+        await self.tqv.write_byte_reg(0, reg0)
+
+    async def write32_reg_0(self):
+        reg0 = self._gen_reg_0()
+        await self.tqv.write_word_reg(0, reg0)
+    
+    def _gen_reg_0(self):
+        return self._clear_timer_interrupt \
+            | (self._clear_loop_interrupt << 1) \
+            | (self._clear_program_end_interrupt << 2) \
+            | (self._clear_program_counter_64_interrupt << 3) \
+            | (self._start_program << 4) \
+            | (self._stop_program << 5) \
             | (self.config_timer_interrupt_en << 8) \
             | (self.config_loop_interrupt_en << 9) \
             | (self.config_program_end_interrupt_en << 10) \
@@ -89,10 +99,8 @@ class Device:
             | (self.config_invert_output << 14) \
             | (self.config_carrier_en << 15) \
             | (self.config_carrier_duration << 16)
-        
-        await self.tqv.write_word_reg(0, reg0)
 
-    async def write_reg_1(self):
+    async def write32_reg_1(self):
         reg1 = self.config_program_start_index \
             | (self.config_program_end_index << 8) \
             | (self.config_program_loop_count << 16) \
@@ -100,11 +108,11 @@ class Device:
         
         await self.tqv.write_word_reg(4, reg1)
 
-    async def write_reg_2(self):
+    async def write32_reg_2(self):
         reg2 = (self.config_main_high_duration_b << 24) | (self.config_main_high_duration_a << 16) | (self.config_main_low_duration_b << 8) | self.config_main_low_duration_a
         await self.tqv.write_word_reg(8, reg2)
     
-    async def write_reg_3(self):
+    async def write32_reg_3(self):
         reg3 = self.config_auxillary_mask \
             | (self.config_auxillary_duration_a << 8) \
             | (self.config_auxillary_duration_b << 16) \
@@ -113,32 +121,38 @@ class Device:
         
         await self.tqv.write_word_reg(12, reg3)
 
-    """ Start the program (also clears any interrupt) """
+    """ Start the program """
     async def start_program(self):
-        self.run_program = 1
-        self.timer_interrupt_clear = 1
-        self.loop_interrupt_clear = 1
-        self.program_end_interrupt_clear = 1
-        self.program_counter_64_interrupt_clear = 1
-        
-        await self.write_reg_0()
-        
-        self.timer_interrupt_clear = 0
-        self.loop_interrupt_clear = 0
-        self.program_end_interrupt_clear = 0
-        self.program_counter_64_interrupt_clear = 0
+        self._start_program = 1
+        await self.write8_reg_0()
+
+    """ Start the program (also clears any interrupt) """
+    async def clear_interrupts(self, clear_timer_interrupt = 1, clear_loop_interrupt = 1, clear_program_end_interrupt=1, clear_program_counter_64_interrupt=1):
+        self._clear_timer_interrupt = clear_timer_interrupt
+        self._clear_loop_interrupt = clear_loop_interrupt
+        self._clear_program_end_interrupt = clear_program_end_interrupt
+        self._clear_program_counter_64_interrupt = clear_program_counter_64_interrupt
+        await self.write8_reg_0()
+
+    async def clear_interrupts_using32(self, clear_timer_interrupt = 1, clear_loop_interrupt = 1, clear_program_end_interrupt=1, clear_program_counter_64_interrupt=1):
+        self._clear_timer_interrupt = clear_timer_interrupt
+        self._clear_loop_interrupt = clear_loop_interrupt
+        self._clear_program_end_interrupt = clear_program_end_interrupt
+        self._clear_program_counter_64_interrupt = clear_program_counter_64_interrupt
+        await self.write32_reg_0()
+
     
     # for a symbol tuple[int, int], 
     # the first value is the duration selector
     # the second value is the transmit level
     async def write_program(self, program: list[tuple[int, int]]):
-        # run_program must be 0, as the program must be running yet
-        assert self.run_program == 0
+        # We did not check if the program is currently running, 
+        # writing while program is running may have undefined behaviour
 
-        await self.write_reg_0()
-        await self.write_reg_1()
-        await self.write_reg_2()
-        await self.write_reg_3()
+        await self.write32_reg_0()
+        await self.write32_reg_1()
+        await self.write32_reg_2()
+        await self.write32_reg_3()
 
         word = 0
         count = 0
@@ -552,7 +566,6 @@ async def basic_test16(dut):
 
     await device.write_program(program)
     await device.test_expected_waveform(program)
-"""
 
 # Basic test with MAX_DURATION
 @cocotb.test(timeout_time=11, timeout_unit="ms")
@@ -571,7 +584,7 @@ async def basic_test17(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
-"""
+
 # Advanced test with looping a certain number of counts
 @cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_test1(dut):
@@ -1190,46 +1203,226 @@ async def elite_test7(dut):
     await device.write_program(program)
     await device.test_expected_waveform(program)
 
+# Interrupt disable test - do not enable interrupts,
+# but we loop, have program counter past 64
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def interrupt_test1(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = []
+
+    random.seed(1234) 
+    for _ in range(96):
+        duration_selector = random.randint(0, 1)  # 1-bit selector: 0 or 1
+        transmit_level = random.randint(0, 1)     # 1-bit transmit level: 0 or 1
+        program.append((duration_selector, transmit_level))
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 3
+    device.config_program_loop_count = 4
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+    assert not await device.tqv.is_interrupt_asserted()
+
+# Program end interrupt test, using 8 bit write to clear
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def interrupt_test2(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_program_end_interrupt_en = 1
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 3
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+    assert await device.tqv.is_interrupt_asserted()
+
+    await device.clear_interrupts(
+        clear_timer_interrupt = 1,
+        clear_loop_interrupt = 1,
+        clear_program_end_interrupt = 0,  # Means no effect (don't clear program end interrupt)
+        clear_program_counter_64_interrupt = 1
+    )
+    # there should be no effect, program end interrupt interrupt should not be cleared
+    assert await device.tqv.is_interrupt_asserted()
+
+    await device.clear_interrupts(
+        clear_timer_interrupt = 0,
+        clear_loop_interrupt = 0,
+        clear_program_end_interrupt = 1,
+        clear_program_counter_64_interrupt = 0
+    )
+    assert not await device.tqv.is_interrupt_asserted()
+
+# Program end interrupt test using 32 bit write to clear
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def interrupt_test3(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_program_end_interrupt_en = 1
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 3
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+    assert await device.tqv.is_interrupt_asserted()
+
+    await device.clear_interrupts_using32(
+        clear_timer_interrupt = 1,
+        clear_loop_interrupt = 1,
+        clear_program_end_interrupt = 0, # Means no effect (don't clear timer interrupt)
+        clear_program_counter_64_interrupt = 1
+    )
+
+    # there should be no effect
+    assert await device.tqv.is_interrupt_asserted()
+    
+    await device.clear_interrupts_using32(
+        clear_timer_interrupt = 0,
+        clear_loop_interrupt = 0,
+        clear_program_end_interrupt = 1,
+        clear_program_counter_64_interrupt = 0
+    )
+    assert not await device.tqv.is_interrupt_asserted()
+
+# Loop interrupt test
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def interrupt_test4(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_loop_interrupt_en = 1
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 3
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+    # No interrupt triggered because we did not loop
+    assert not await device.tqv.is_interrupt_asserted()
+
+    device.config_program_loop_count = 2
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+    # Interrupt triggered because we looped once
+    assert await device.tqv.is_interrupt_asserted()
+
+    await device.clear_interrupts_using32(
+        clear_timer_interrupt = 0,
+        clear_loop_interrupt = 1,
+        clear_program_end_interrupt = 0,
+        clear_program_counter_64_interrupt = 0
+    )
+
+    assert not await device.tqv.is_interrupt_asserted()
+
+# Timer interrupt test
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def interrupt_test5(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [(0, 1), (0, 0), (1, 1), (1, 0)]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_timer_interrupt_en = 1
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 3
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+    assert await device.tqv.is_interrupt_asserted()
+
+
+    # Interrupt triggered because we looped once
+    assert await device.tqv.is_interrupt_asserted()
+
+    await device.clear_interrupts(
+        clear_timer_interrupt = 1,
+        clear_loop_interrupt = 1,
+        clear_program_end_interrupt = 1,
+        clear_program_counter_64_interrupt = 1
+    )
+
+    assert not await device.tqv.is_interrupt_asserted()
+ 
+# Program counter 64 interrupt test
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def interrupt_test6(dut):
+    device = Device(dut)
+    await device.init()
+
+    program_len = MAX_PROGRAM_LEN
+    
+    program = []
+
+    random.seed(8888) 
+    for _ in range(program_len):
+        duration_selector = random.randint(0, 1)  # 1-bit selector: 0 or 1
+        transmit_level = random.randint(0, 1)     # 1-bit transmit level: 0 or 1
+        program.append((duration_selector, transmit_level))
+    
+    device.config_program_end_index = 63
+    device.config_program_counter_64_interrupt_en = 1
+    device.config_main_low_duration_a = 1
+    device.config_main_low_duration_b = 2
+    device.config_main_high_duration_a = 0
+    device.config_main_high_duration_b = 3
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+    # No interrupt triggered because program counter did not reach 64
+    assert not await device.tqv.is_interrupt_asserted()
+
+    device.config_program_end_index = 64
+
+    await device.write_program(program)
+    await device.test_expected_waveform(program)
+
+    # Interrupt triggered because program counter reached 64
+    assert await device.tqv.is_interrupt_asserted()
+
+    await device.clear_interrupts_using32(
+        clear_timer_interrupt = 0,
+        clear_loop_interrupt = 0,
+        clear_program_end_interrupt = 0,
+        clear_program_counter_64_interrupt = 1
+    )
+
+    assert not await device.tqv.is_interrupt_asserted()
+
+
 # make sure we can switch different program & configs without residue
 
-    #assert await tqv.read_byte_reg(0) == 0x78
-    #assert await tqv.read_hword_reg(0) == 0x5678
-    #assert await tqv.read_word_reg(0) == 0x82345678
-
-    # Set an input value, in the example this will be added to the register value
-    #dut.ui_in.value = 30
-
-    # Wait for two clock cycles to see the output values, because ui_in is synchronized over two clocks,
-    # and a further clock is required for the output to propagate.
-    #await ClockCycles(dut.clk, 3)
-
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    #assert dut.uo_out.value == 0x96
-
-    # Input value should be read back from register 1
-    #assert await tqv.read_byte_reg(4) == 30
-
-    # Zero should be read back from register 2
-    #assert await tqv.read_word_reg(8) == 0
-
-    # A second write should work
-    #await tqv.write_word_reg(0, 40)
-    #assert dut.uo_out.value == 70
-
-"""# Test the interrupt, generated when ui_in[6] goes high
-    dut.ui_in[6].value = 1
-    await ClockCycles(dut.clk, 1)
-    dut.ui_in[6].value = 0
-
-    # Interrupt asserted
-    await ClockCycles(dut.clk, 3)
-    assert await tqv.is_interrupt_asserted()
-
-    # Interrupt doesn't clear
-    await ClockCycles(dut.clk, 10)
-    assert await tqv.is_interrupt_asserted()
-    
-    # Write bottom bit of address 8 high to clear
-    await tqv.write_byte_reg(8, 1)
-    assert not await tqv.is_interrupt_asserted()"""
+#assert await tqv.read_word_reg(8) == 0

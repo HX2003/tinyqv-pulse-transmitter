@@ -50,17 +50,18 @@ Combined together, total duration ticks = (duration + 2) << prescaler.
 | 0x20 - 0x3F | DATA  | W      | PROGRAM_DATA_MEM |
 
 ## Writing
-Only aligned 32 bit writes are supported in general. However, 8 bit write is allowed at address 0x00 to aid in starting the program or clearing interrupts.
+Only aligned 32 bit writes are supported in general. However, 8 bit write is allowed at address 0x00 to aid in clearing interrupts, starting or stopping the program.
 
 ### REG_0
 | Bits  | Function                            |
 |-------|-------------------------------------|
-| 0     | program_status (start/stop program) |
-| 1     | timer_interrupt_clear               |
-| 2     | loop_interrupt_clear                |
-| 3     | program_end_interrupt_clear         |
-| 4     | program_counter_64_interrupt_clear  |
-| 7:5   | *unused*                            |
+| 0     | clear_timer_interrupt               |
+| 1     | clear_loop_interrupt                |
+| 2     | clear_program_end_interrupt         |
+| 3     | clear_counter_64_interrupt          |
+| 4     | start_program                       |
+| 5     | stop_program                        |
+| 7:6   | *unused*                            |
 | 8     | timer_interrupt_en                  |
 | 9     | loop_interrupt_en                   |
 | 10    | program_end_interrupt_en            |
@@ -70,6 +71,8 @@ Only aligned 32 bit writes are supported in general. However, 8 bit write is all
 | 14    | invert_output                       |
 | 15    | carrier_en                          |
 | 31:16 | carrier_duration                    |
+
+To clear interrupts, start or stop the program, simply write a '1' to corresponding bit.
 
 ### REG_1
 | Bits  | Function                            |
@@ -103,11 +106,11 @@ Only aligned 32 bit writes are supported in general. However, 8 bit write is all
 Read address does not matter as a fixed 32 bits of data are assigned to the `data_out` register. The bottom 8, 16 or all 32 bits are valid on read.
 | Bits  | Function                            |
 |-------|-------------------------------------|
-| 0     | program_status                      |
-| 1     | timer_interrupt_status              |
-| 2     | loop_interrupt_status               |
-| 3     | program_end_interrupt_status        |
-| 4     | program_counter_64_interrupt_status |
+| 0     | timer_interrupt_status              |
+| 1     | loop_interrupt_status               |
+| 2     | program_end_interrupt_status        |
+| 3     | program_counter_64_interrupt_status |
+| 4     | program_status                      |
 | 7:5   | *unused* (value of 0)               |
 | 14:8  | program_counter                     |
 | 15    | *unused* (value of 0)               |

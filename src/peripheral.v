@@ -39,10 +39,10 @@ module tqvp_hx2003_pulse_transmitter (
     
     // The various configuration registers
     reg [31:0] reg_0;
-    `define run_program_status_register reg_0[0]
-    wire _debug_run_program_status_register = reg_0[0];
-    `define interrupt_status_register reg_0[4:1]
-    wire [3:0] _debug_interrupt_status_register = reg_0[4:1];
+    `define interrupt_status_register reg_0[3:0]
+    wire [3:0] _debug_interrupt_status_register = reg_0[3:0];
+    `define program_status_register reg_0[4]
+    wire _debug_program_status_register = reg_0[4];
     wire _unused_reg_0_a = &{reg_0[7:5], 1'b0};
     wire [3:0] config_interrupt_enable_mask = reg_0[11:8];
     wire config_loop_forever = reg_0[12];
@@ -92,7 +92,7 @@ module tqvp_hx2003_pulse_transmitter (
     pulse_transmitter_rising_edge_detector config_start_rising_edge_detector(
         .clk(clk),
         .rst_n(rst_n),
-        .sig_in(`run_program_status_register),
+        .sig_in(`program_status_register),
         .pulse_out(start_pulse)
     );
     
@@ -104,6 +104,7 @@ module tqvp_hx2003_pulse_transmitter (
     always @(posedge clk) begin
         if (!rst_n) begin
             // Reset the registers to its defaults
+            // If user modifies the value, the values are kept even if the program terminated
             reg_0 <= 0;
             reg_1 <= 0;
             reg_2 <= 0;
@@ -111,7 +112,7 @@ module tqvp_hx2003_pulse_transmitter (
         end else begin
             // Defaults (they can be overriden below)
             `interrupt_status_register <= `interrupt_status_register | interrupt_event_flag;
-            `run_program_status_register <= `run_program_status_register & ~terminate_program;
+            `program_status_register <= `program_status_register & ~terminate_program;
 
             if (address[5] == 1'b0) begin
                 // Support 32 bit aligned write at address 0, 4, 8, 12 for reg_0, reg_1, reg_2, reg_3
@@ -119,19 +120,18 @@ module tqvp_hx2003_pulse_transmitter (
                 if (data_write_n == 2'b00 || data_write_n == 2'b10) begin
                     case (address[3:2])
                         2'd0: begin
-                            // reg_0[0] stores whether the program is running,
-                            // write 1 to start the program, (does not restart if already started)
-                            // write 0 to stop the program
-                            `run_program_status_register <= data_in[0];
-
-                            // reg_0[4:1] stores the interrupt values,
-                            // bit 1 (timer_interrupt)
-                            // bit 2 (loop_interrupt) 
-                            // bit 3 (program_end_interrupt) 
-                            // bit 4 (program_counter_64_interrupt)
+                            // reg_0[3:0] stores the interrupt values,
+                            // bit 0 (timer_interrupt)
+                            // bit 1 (loop_interrupt) 
+                            // bit 2 (program_end_interrupt) 
+                            // bit 3 (program_counter_64_interrupt)
                             // write 1 to the desired interrupt bit to clear it
-                            `interrupt_status_register <= (`interrupt_status_register & ~data_in[4:1]) | interrupt_event_flag;
-                            
+                            `interrupt_status_register <= (`interrupt_status_register & ~data_in[3:0]) | interrupt_event_flag;
+                            // reg_0[4] stores whether the program is running,
+                            // write 1 to bit 4 of reg_0 to start the program, (does not restart if already started)
+                            // write 1 to bit 5 of reg_0 to stop the program
+                            `program_status_register <= data_in[5] ? 1'b0 : ((data_in[4] ? 1'b1 : `program_status_register));
+
                             // reg_0[7:5] <= data_in[7:5]; not using, so lets save space
 
                             if (data_write_n == 2'b10) begin
@@ -180,7 +180,7 @@ module tqvp_hx2003_pulse_transmitter (
     */
 
     always @(posedge clk) begin
-        if (!rst_n || !`run_program_status_register) begin
+        if (!rst_n || !`program_status_register) begin
             carrier_counter <= 0;
             carrier_out <= 0;
         end else begin
@@ -212,7 +212,7 @@ module tqvp_hx2003_pulse_transmitter (
     pulse_transmitter_countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
-        .en(`run_program_status_register && !start_pulse && !start_pulse_delayed_1),
+        .en(`program_status_register && !start_pulse && !start_pulse_delayed_1),
         .prescaler(prescaler),
         .duration(duration),
         .request_data(timer_request_data),
@@ -277,10 +277,10 @@ module tqvp_hx2003_pulse_transmitter (
         end
     end
 
-    // The output is only valid when `run_program_status_register is high,
+    // The output is only valid when `program_status_register is high,
     // except for the first few cycles after starting the program.
     // This is because it takes some cycles to fetch and prefetch the symbols.
-    wire valid_output = `run_program_status_register && !start_pulse && !start_pulse_delayed_1 && !start_pulse_delayed_2;
+    wire valid_output = `program_status_register && !start_pulse && !start_pulse_delayed_1 && !start_pulse_delayed_2;
 
     // The program counter should increment:
     // once for start_pulse (we fetch the current symbol and increment program_counter)
@@ -294,7 +294,7 @@ module tqvp_hx2003_pulse_transmitter (
     reg program_counter_64_interrupt; // should only be activated for 1 pulse
 
     always @(posedge clk) begin
-        if (!rst_n || !`run_program_status_register) begin
+        if (!rst_n || !`program_status_register) begin
             program_loop_counter <= {1'b0, config_program_loop_count} - 1;
             program_end_of_file <= 0;
             program_counter <= config_program_start_index;
