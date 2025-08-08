@@ -9,7 +9,8 @@
 // For example tqvp_yourname_spi for an SPI peripheral.
 // Then edit tt_wrapper.v line 41 and change tqvp_example to your chosen module name.
 module tqvp_hx2003_pulse_transmitter # (
-    CARRIER_TIMER_WIDTH = 16 // Do not change these parameters, as the register mapping will not be updated
+    CARRIER_TIMER_WIDTH = 14, // Do not change these parameters, as the register mapping will not be updated
+    LOOP_COUNTER_WIDTH = 7    // Do not change these parameters, as the register mapping will not be updated
 ) ( 
     input         clk,          // Clock - the TinyQV project clock is normally set to 64MHz.
     input         rst_n,        // Reset_n - low to reset.
@@ -51,15 +52,20 @@ module tqvp_hx2003_pulse_transmitter # (
     wire config_idle_level = reg_0[13];
     wire config_invert_output = reg_0[14];
     wire config_carrier_en = reg_0[15];
+    wire config_use_2bps = reg_0[16];
+    wire [1:0] config_low_symbol_0 = reg_0[18:17];
+    wire [1:0] config_low_symbol_1 = reg_0[20:19];
+    wire [1:0] config_high_symbol_0 = reg_0[22:21];
+    wire [1:0] config_high_symbol_1 = reg_0[24:23];
+    wire _unused_reg_0_b = &{reg_0[31:25], 1'b0};
+
 
     reg [31:0] reg_1;
-    wire [6:0] config_program_start_index = reg_1[6:0];
-    wire _unused_reg_1_a = &{reg_1[7], 1'b0};
-    wire [6:0] config_program_end_index = reg_1[14:8];
-    wire _unused_reg_1_b = &{reg_1[15], 1'b0};
-    wire [7:0] config_program_loop_count = reg_1[23:16];
-    wire [6:0] config_program_loopback_index = reg_1[30:24];
-    wire _unused_reg_1_c = &{reg_1[31], 1'b0};
+    wire [7:0] config_program_start_index = reg_1[7:0];
+    wire [7:0] config_program_end_index = reg_1[15:8];
+    wire [7:0] config_program_loopback_index = reg_1[23:16];
+    wire [6:0] config_program_loop_count = reg_1[30:24];
+    wire _unused_reg_1_a = &{reg_1[31], 1'b0};
 
 
     reg [31:0] reg_2;
@@ -76,14 +82,14 @@ module tqvp_hx2003_pulse_transmitter # (
     wire [3:0] config_auxillary_prescaler = reg_3[27:24];
     wire [3:0] config_main_prescaler = reg_3[31:28];
 
-    reg [15:0] reg_4;
-    wire [15:0] config_carrier_duration = reg_4[15:0];
+    reg [13:0] reg_4;
+    wire [13:0] config_carrier_duration = reg_4[13:0];
 
     // Interrupt
     assign user_interrupt = `interrupt_status_register > 0;
     
     wire [3:0] interrupt_event_flag = {
-        program_counter_64_interrupt, // bit 3 (program_counter_64_interrupt)
+        program_counter_mid_interrupt, // bit 3 (program_counter_mid_interrupt)
         terminate_program, // bit 2 (program_end_interrupt)
         loop_interrupt, // bit 1 (loop_interrupt)
         timer_pulse_out // bit 0 (timer_interrupt)
@@ -128,7 +134,7 @@ module tqvp_hx2003_pulse_transmitter # (
                             // bit 0 (timer_interrupt)
                             // bit 1 (loop_interrupt) 
                             // bit 2 (program_end_interrupt) 
-                            // bit 3 (program_counter_64_interrupt)
+                            // bit 3 (program_counter_mid_interrupt)
                             // write 1 to the desired interrupt bit to clear it
                             `interrupt_status_register <= (`interrupt_status_register & ~data_in[3:0]) | interrupt_event_flag;
                             // reg_0[4] stores whether the program is running,
@@ -146,7 +152,10 @@ module tqvp_hx2003_pulse_transmitter # (
                         3'd1: reg_1 <= data_in[31:0];
                         3'd2: reg_2 <= data_in[31:0];
                         3'd3: reg_3 <= data_in[31:0];
-                        3'd4: reg_4 <= data_in[15:0];
+                        3'd4: reg_4 <= data_in[13:0];
+                        default: begin
+                            // Do nothing
+                        end
                     endcase
                 end
             end else begin
@@ -207,45 +216,71 @@ module tqvp_hx2003_pulse_transmitter # (
         .pulse_out(timer_pulse_out)
     );
 
-    wire [31:0] data_32 = PROGRAM_DATA_MEM[program_counter[6:4]];
-    reg [1:0] symbol_data;
+    // When program counter is
+    // 0, it should take from address 0
+    // 64, it should take from address 1
+    // 128, it should take from address 2
+    // ...
+    // 448, it should take from address 7
+
+    // The auxillary mask only applies for the first 8 symbols in both 1bps and 2bps mode
+    reg use_auxillary;
+    always @(*) begin
+        if(program_counter < 32) begin
+            if (config_use_2bps) begin
+                // get the nth s
+                use_auxillary = config_auxillary_mask[program_counter[4:2] +: 1];
+            end else begin
+                //use_auxillary = (program_counter < 16) && config_auxillary_mask[program_counter[3:1]];
+                //0b01111 = 15
+                use_auxillary = (program_counter[4] == 1'b0) && config_auxillary_mask[program_counter[3:1] +: 1];
+            end
+        end else begin 
+            use_auxillary = 1'b0;
+        end
+    end
+
+    wire [31:0] data_32 = PROGRAM_DATA_MEM[program_counter[8:6]];
+    reg [1:0] symbol_data_raw;
+
+    reg [1:0] symbol_data_decoded;
     reg transmit_level;
 
-    // Combinatorics, multiplexer to obtain 2 bit symbol_data based on program_counter
+    // Combinatorics to obtain duration and transmit level based on program_counter
     always @(*) begin
-        // Extract 2-bit chunk based on sel
-        symbol_data = data_32[{program_counter[3:0], 1'b0} +: 2];
-        /*case (program_counter[3:0])
-            4'd0:  symbol_data = data_32[1:0];
-            4'd1:  symbol_data = data_32[3:2];
-            4'd2:  symbol_data = data_32[5:4];
-            4'd3:  symbol_data = data_32[7:6];
-            4'd4:  symbol_data = data_32[9:8];
-            4'd5:  symbol_data = data_32[11:10];
-            4'd6:  symbol_data = data_32[13:12];
-            4'd7:  symbol_data = data_32[15:14];
-            4'd8:  symbol_data = data_32[17:16];
-            4'd9:  symbol_data = data_32[19:18];
-            4'd10: symbol_data = data_32[21:20];
-            4'd11: symbol_data = data_32[23:22];
-            4'd12: symbol_data = data_32[25:24];
-            4'd13: symbol_data = data_32[27:26];
-            4'd14: symbol_data = data_32[29:28];
-            4'd15: symbol_data = data_32[31:30];
-        endcase*/
+        // Extract 2-bit raw chunk based on sel
+        // When program counter is
+        // 0, it should take from 1:0
+        // 4, it should take from 3:1
+        // 8, it should take from 5:4
+        // ...
+        symbol_data_raw = data_32[{program_counter[5:2], 1'b0} +: 2];
 
-        transmit_level = symbol_data[1];
+        if (config_use_2bps) begin
+            symbol_data_decoded = symbol_data_raw;
+        end else begin
+            // Select 1 bit from the symbol data
+            if (symbol_data_raw[program_counter[0] +: 1]) begin
+                // High
+                symbol_data_decoded = program_counter[0] ? config_high_symbol_1: config_high_symbol_0;
+            end else begin
+                // Low
+                symbol_data_decoded = program_counter[0] ? config_low_symbol_1: config_low_symbol_0;
+            end
+        end
 
-        if (program_counter < 8 && config_auxillary_mask[program_counter[2:0]]) begin
+        transmit_level = symbol_data_decoded[1];
+        
+        if (use_auxillary) begin
             prescaler = config_auxillary_prescaler;
-            if(symbol_data[0] == 1'b0) begin
+            if(symbol_data_decoded[0] == 1'b0) begin
                 duration = config_auxillary_duration_a;
             end else begin
                 duration = config_auxillary_duration_b;
             end
         end else begin
             prescaler = config_main_prescaler;
-            case (symbol_data)
+            case (symbol_data_decoded)
                 2'd0: duration = config_main_low_duration_a;
                 2'd1: duration = config_main_low_duration_b;
                 2'd2: duration = config_main_high_duration_a;
@@ -276,41 +311,56 @@ module tqvp_hx2003_pulse_transmitter # (
     // every time we trigger the timer (note: program counter is incremented before timer has elapsed, because we want to prefetch)
     wire program_counter_increment_trigger = timer_request_data;
     
-    reg [6:0] program_counter;
-    reg [8:0] program_loop_counter; // add 1 more bit for the rollover detector
+    // The program counter is 9 bits, so between 0 to 511
+    // However, we only expose the most significant 8 bits to the user.
+    //
+    // In 2bps (2 bits per symbol) mode, program_counter is incremented by 4 each time
+    // can be even value between 0 to 255
+    //
+    // In 1bps (1 bits per symbol) mode, program_counter is incremented by 1 each time
+    //
+    // config_program_start_index, config_program_end_index and config_program_loopback_index
+    // can be any value between 0 to 255
+
+    reg [8:0] program_counter;
+    reg [(LOOP_COUNTER_WIDTH - 1):0] program_loop_counter; // add 1 more bit for the rollover detector
     reg program_end_of_file;
     reg loop_interrupt; // should only be activated for 1 pulse
-    reg program_counter_64_interrupt; // should only be activated for 1 pulse
+    reg program_counter_mid_interrupt; // should only be activated for 1 pulse
 
     always @(posedge clk) begin
         if (!rst_n || !`program_status_register) begin
-            program_loop_counter <= {1'b0, config_program_loop_count} - 1;
+            program_loop_counter <= config_program_loop_count;
             program_end_of_file <= 0;
-            program_counter <= config_program_start_index;
+            program_counter <= {config_program_start_index, 1'b0};
             loop_interrupt <= 0;
-            program_counter_64_interrupt <= 0;
+            program_counter_mid_interrupt <= 0;
         end else begin
             loop_interrupt <= 0; // default value, can be overidden later
-            program_counter_64_interrupt <= 0; // default value, can be overidden later
+            program_counter_mid_interrupt <= 0; // default value, can be overidden later
 
             if (program_counter_increment_trigger) begin
-                if (program_counter == 64) begin
-                    program_counter_64_interrupt <= 1'b1;
+                if (program_counter == 256) begin // Note 
+                    program_counter_mid_interrupt <= 1'b1;
                 end
 
-                if (program_counter == config_program_end_index) begin
-                    if (!config_loop_forever && (program_loop_counter[8] == 1'b1)) begin
+                if (program_counter == {config_program_end_index, 1'b0}) begin
+                    if (!config_loop_forever && (program_loop_counter == 0)) begin
                         // Set program_end_of_file
                         // But do not disable output yet, as the preloaded values are not yet flushed out
                         program_end_of_file <= 1;
                     end else begin
                         // We want to loop, set the program counter
-                        program_counter <= config_program_loopback_index;
+                        program_counter <= {config_program_loopback_index, 1'b0};
                         program_loop_counter <= program_loop_counter - 1;
                         loop_interrupt <= 1'b1;
                     end
                 end else begin
-                    program_counter <= program_counter + 1;
+                    if (config_use_2bps) begin
+                        program_counter <= program_counter + 4;
+                    end else begin
+                        program_counter <= program_counter + 1;
+                    end
                 end
             end
         end
@@ -327,9 +377,9 @@ module tqvp_hx2003_pulse_transmitter # (
     // Read address doesn't matter
     assign data_out[4:0] = reg_0[4:0];
     assign data_out[7:5] = 3'b0;
-    assign data_out[14:8] = program_counter;
+    assign data_out[14:8] = program_loop_counter;
     assign data_out[15] = 1'b0;
-    assign data_out[24:16] = program_loop_counter; // 9 bits
+    assign data_out[24:16] = program_counter; // the full program counter 9 bits
     assign data_out[31:25] = 7'b0;
 
     // All reads complete in 1 clock

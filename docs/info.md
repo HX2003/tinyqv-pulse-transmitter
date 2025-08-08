@@ -19,7 +19,7 @@ Peripheral index: 11
 
 ## What it does
 
-Pulse transmitter is a peripheral that can transmit up to 128 binary symbols, each having varying durations. You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up to 256 times or loop forever.
+Pulse transmitter is a peripheral that can transmit up to 256 symbols, each having varying durations. You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up to 256 times or loop forever.
 
 Due to the limited amount of memory available, each symbol is encoded as follows:
 | Bit 1          | Bit 0           |
@@ -58,30 +58,34 @@ Only aligned 32 bit writes are supported in general. However, 8 bit write is all
 | 0     | clear_timer_interrupt               |
 | 1     | clear_loop_interrupt                |
 | 2     | clear_program_end_interrupt         |
-| 3     | clear_counter_64_interrupt          |
+| 3     | clear_program_counter_mid_interrupt |
 | 4     | start_program                       |
 | 5     | stop_program                        |
 | 7:6   | *unused*                            |
 | 8     | timer_interrupt_en                  |
 | 9     | loop_interrupt_en                   |
 | 10    | program_end_interrupt_en            |
-| 11    | program_counter_64_interrupt_en     |
+| 11    | program_counter_mid_interrupt_en    |
 | 12    | loop_forever                        |
 | 13    | idle_level                          |
 | 14    | invert_output                       |
 | 15    | carrier_en                          |
+| 16    | use_2bps                            |
+| 18:17 | low_symbol_0                        |
+| 20:19 | low_symbol_1                        |
+| 22:21 | high_symbol_0                       |
+| 24:23 | high_symbol_1                       |
+| 31:25 | *unused*                            |
 
 To clear interrupts, start or stop the program, simply write a '1' to corresponding bit.
 
 ### REG_1
 | Bits  | Name                                |
 |-------|-------------------------------------|
-| 6:0   | program_start_index                 |
-| 7     | *unused*                            |
-| 14:8  | program_end_index                   |
-| 15    | *unused*                            |
-| 23:16 | program_end_loop_count              |
-| 30:24 | program_end_loopback_index          |
+| 7:0   | program_start_index                 |
+| 15:8  | program_end_index                   |
+| 23:16 | program_end_loopback_index          |
+| 30:24 | program_loop_count (7 bits)         |
 | 31    | *unused*                            |
 
 ### REG_2
@@ -102,23 +106,25 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | 31:28 | main_prescaler                      |
 
 ### REG_4
-| 15:0  | carrier_duration                    |
+| Bits  | Name                                |
+|-------|-------------------------------------|
+| 13:0  | carrier_duration                    |
 | 31:16 | *unused*                            |
 
 ## Reading
 Read address does not matter as a fixed 32 bits of data are assigned to the `data_out` register. The bottom 8, 16 or all 32 bits are valid on read.
-| Bits  | Name                                |
-|-------|-------------------------------------|
-| 0     | timer_interrupt_status              |
-| 1     | loop_interrupt_status               |
-| 2     | program_end_interrupt_status        |
-| 3     | program_counter_64_interrupt_status |
-| 4     | program_status                      |
-| 7:5   | *unused* (value of 0)               |
-| 14:8  | program_counter                     |
-| 15    | *unused* (value of 0)               |
-| 24:16 | program_loop_counter (9 bits)       |
-| 31:25 | *unused* (value of 0)               |
+| Bits  | Name                                 |
+|-------|--------------------------------------|
+| 0     | timer_interrupt_status               |
+| 1     | loop_interrupt_status                |
+| 2     | program_end_interrupt_status         |
+| 3     | program_counter_mid_interrupt_status |
+| 4     | program_status                       |
+| 7:5   | *unused* (value of 0)                |
+| 14:8  | program_counter                      |
+| 15    | *unused* (value of 0)                |
+| 24:16 | full_program_loop_counter (9 bits)   |
+| 31:25 | *unused* (value of 0)                |
 
 ## How to test
 
