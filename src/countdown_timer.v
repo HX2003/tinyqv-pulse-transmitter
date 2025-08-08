@@ -15,7 +15,7 @@
 //
 // Note that prescaler and duration must be provided 1 cycle before en is 1
 
-module pulse_transmitter_countdown_timer #(
+module countdown_timer #(
     parameter PRESCALER_WIDTH = 16,
     parameter TIMER_WIDTH = 8
 ) (
@@ -32,7 +32,7 @@ module pulse_transmitter_countdown_timer #(
     // shifting the duration is the simplest, but takes more logic gates
     // wire [(COUNTER_WIDTH - 1):0] counter_start = {1'b0, {{PRESCALER_WIDTH{1'b0}}, duration} << prescaler};
 
-    pulse_transmitter_rising_edge_detector out_rising_edge_detector(
+    simple_rising_edge_detector out_rising_edge_detector(
         .clk(clk),
         .rst_n(sys_rst_n),
         .sig_in(out),

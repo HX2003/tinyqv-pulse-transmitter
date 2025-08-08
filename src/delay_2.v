@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-module pulse_transmitter_delay_2 (
+module delay_2 (
     input  wire clk,
     input  wire sys_rst_n,
     input  wire sig_in,

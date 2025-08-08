@@ -5,7 +5,7 @@
 
 // Simple synchronous rising edge detector
 
-module pulse_transmitter_rising_edge_detector (
+module simple_rising_edge_detector (
     input clk,           
     input rst_n,            
     input sig_in,

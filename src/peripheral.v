@@ -8,7 +8,9 @@
 // Change the name of this module to something that reflects its functionality and includes your name for uniqueness
 // For example tqvp_yourname_spi for an SPI peripheral.
 // Then edit tt_wrapper.v line 41 and change tqvp_example to your chosen module name.
-module tqvp_hx2003_pulse_transmitter ( 
+module tqvp_hx2003_pulse_transmitter # (
+    CARRIER_TIMER_WIDTH = 16 // Do not change these parameters, as the register mapping will not be updated
+) ( 
     input         clk,          // Clock - the TinyQV project clock is normally set to 64MHz.
     input         rst_n,        // Reset_n - low to reset.
 
@@ -31,7 +33,7 @@ module tqvp_hx2003_pulse_transmitter (
     output        user_interrupt  // Dedicated interrupt request for this peripheral
 );
 
-    // Fixed parameters
+    // Local Fixed parameters
     localparam NUM_DATA_REG = 8; // NUM_DATA_REG must be power of 2 as we depend on the program to rollover, see rollover / wrapping test
 
     // Calculated parameters
@@ -89,7 +91,7 @@ module tqvp_hx2003_pulse_transmitter (
     // The rest of our code
     wire start_pulse;
 
-    pulse_transmitter_rising_edge_detector config_start_rising_edge_detector(
+    simple_rising_edge_detector config_start_rising_edge_detector(
         .clk(clk),
         .rst_n(rst_n),
         .sig_in(`program_status_register),
@@ -166,36 +168,19 @@ module tqvp_hx2003_pulse_transmitter (
     // Apply optional inversion
     wire final_output = active_or_idle_output ^ config_invert_output;
     
-    reg [15:0] carrier_counter;
-    reg carrier_out;
+    wire carrier_out;
     
-    /*
-    wire carrier_pulse_out;
-    pulse_transmitter_rising_edge_detector carrier_out_rising_edge_detector(
+    carrier #(.TIMER_WIDTH(CARRIER_TIMER_WIDTH)) carrier_timer(
         .clk(clk),
-        .rst_n(rst_n),
-        .sig_in(carrier_out),
-        .pulse_out(carrier_pulse_out)
+        .sys_rst_n(rst_n),           
+        .en(`program_status_register && !start_pulse && !start_pulse_delayed_1),
+        .duration(config_carrier_duration),
+        .out(carrier_out)
     );
-    */
-
-    always @(posedge clk) begin
-        if (!rst_n || !`program_status_register) begin
-            carrier_counter <= 0;
-            carrier_out <= 0;
-        end else begin
-            if (carrier_counter == 16'b0) begin
-                carrier_counter <= config_carrier_duration;
-                carrier_out <= !carrier_out;
-            end else begin
-                carrier_counter <= carrier_counter - 1;
-            end
-        end
-    end
 
     wire start_pulse_delayed_1;
     wire start_pulse_delayed_2;
-    pulse_transmitter_delay_2 start_pulse_delayer(
+    delay_2 start_pulse_delayer(
         .clk(clk),
         .sys_rst_n(rst_n),
         .sig_in(start_pulse),
@@ -209,7 +194,7 @@ module tqvp_hx2003_pulse_transmitter (
     wire timer_pulse_out_with_initial = start_pulse_delayed_1 || timer_pulse_out;
     reg [7:0] duration;
     reg [3:0] prescaler;
-    pulse_transmitter_countdown_timer countdown_timer(
+    countdown_timer countdown_timer(
         .clk(clk),
         .sys_rst_n(rst_n),
         .en(`program_status_register && !start_pulse && !start_pulse_delayed_1),

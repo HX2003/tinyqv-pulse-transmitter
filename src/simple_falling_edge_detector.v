@@ -5,7 +5,7 @@
 
 // Simple synchronous falling edge detector
 
-module pulse_transmitter_falling_edge_detector (
+module simple_falling_edge_detector (
     input clk,           
     input rst_n,            
     input sig_in,
