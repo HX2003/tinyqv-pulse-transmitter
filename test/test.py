@@ -125,23 +125,50 @@ class Device:
     async def start_program(self):
         self._start_program = 1
         await self.write8_reg_0()
+        self._start_program = 0
 
-    """ Start the program (also clears any interrupt) """
+    """ Stop the program """
+    async def stop_program(self):
+        self._stop_program = 1
+        await self.write8_reg_0()
+        self._stop_program = 0
+
+    """ Clear the desired interrupts using 8 bit write """
     async def clear_interrupts(self, clear_timer_interrupt = 1, clear_loop_interrupt = 1, clear_program_end_interrupt=1, clear_program_counter_64_interrupt=1):
         self._clear_timer_interrupt = clear_timer_interrupt
         self._clear_loop_interrupt = clear_loop_interrupt
         self._clear_program_end_interrupt = clear_program_end_interrupt
         self._clear_program_counter_64_interrupt = clear_program_counter_64_interrupt
+        self._start_program = 0
+        self._stop_program = 0
+
         await self.write8_reg_0()
 
+        self._clear_timer_interrupt = 0
+        self._clear_loop_interrupt = 0
+        self._clear_program_end_interrupt = 0
+        self._clear_program_counter_64_interrupt = 0
+        self._start_program = 0
+        self._stop_program = 0
+
+    """ Clear the desired interrupts using 8 bit write """
     async def clear_interrupts_using32(self, clear_timer_interrupt = 1, clear_loop_interrupt = 1, clear_program_end_interrupt=1, clear_program_counter_64_interrupt=1):
         self._clear_timer_interrupt = clear_timer_interrupt
         self._clear_loop_interrupt = clear_loop_interrupt
         self._clear_program_end_interrupt = clear_program_end_interrupt
         self._clear_program_counter_64_interrupt = clear_program_counter_64_interrupt
+        self._start_program = 0
+        self._stop = 0
+
         await self.write32_reg_0()
 
-    
+        self._clear_timer_interrupt = 0
+        self._clear_loop_interrupt = 0
+        self._clear_program_end_interrupt = 0
+        self._clear_program_counter_64_interrupt = 0
+        self._start_program = 0
+        self._stop_program = 0
+
     # for a symbol tuple[int, int], 
     # the first value is the duration selector
     # the second value is the transmit level
@@ -1265,6 +1292,7 @@ async def interrupt_test2(dut):
         clear_program_end_interrupt = 1,
         clear_program_counter_64_interrupt = 0
     )
+
     assert not await device.tqv.is_interrupt_asserted()
 
 # Program end interrupt test using 32 bit write to clear
