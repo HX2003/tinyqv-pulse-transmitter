@@ -33,7 +33,7 @@ module tqvp_hx2003_pulse_transmitter # (
     output        user_interrupt  // Dedicated interrupt request for this peripheral
 );
 
-    // Local Fixed parameters
+    // Local Fixed parameters (do not change)
     localparam NUM_DATA_REG = 8; // NUM_DATA_REG must be power of 2 as we depend on the program to rollover, see rollover / wrapping test
 
     // Calculated parameters
@@ -51,8 +51,6 @@ module tqvp_hx2003_pulse_transmitter # (
     wire config_idle_level = reg_0[13];
     wire config_invert_output = reg_0[14];
     wire config_carrier_en = reg_0[15];
-    wire [15:0] config_carrier_duration = reg_0[31:16];
-
 
     reg [31:0] reg_1;
     wire [6:0] config_program_start_index = reg_1[6:0];
@@ -77,6 +75,9 @@ module tqvp_hx2003_pulse_transmitter # (
     wire [7:0] config_auxillary_duration_b = reg_3[23:16];
     wire [3:0] config_auxillary_prescaler = reg_3[27:24];
     wire [3:0] config_main_prescaler = reg_3[31:28];
+
+    reg [15:0] reg_4;
+    wire [15:0] config_carrier_duration = reg_4[15:0];
 
     // Interrupt
     assign user_interrupt = `interrupt_status_register > 0;
@@ -111,6 +112,7 @@ module tqvp_hx2003_pulse_transmitter # (
             reg_1 <= 0;
             reg_2 <= 0;
             reg_3 <= 0;
+            reg_4 <= 0;
         end else begin
             // Defaults (they can be overriden below)
             `interrupt_status_register <= `interrupt_status_register | interrupt_event_flag;
@@ -120,8 +122,8 @@ module tqvp_hx2003_pulse_transmitter # (
                 // Support 32 bit aligned write at address 0, 4, 8, 12 for reg_0, reg_1, reg_2, reg_3
                 // Support 8 bit write for lower 8 bits of reg_0 (status information)
                 if (data_write_n == 2'b00 || data_write_n == 2'b10) begin
-                    case (address[3:2])
-                        2'd0: begin
+                    case (address[4:2])
+                        3'd0: begin
                             // reg_0[3:0] stores the interrupt values,
                             // bit 0 (timer_interrupt)
                             // bit 1 (loop_interrupt) 
@@ -141,9 +143,10 @@ module tqvp_hx2003_pulse_transmitter # (
                                 reg_0[31:8] <= data_in[31:8];
                             end
                         end
-                        2'd1: reg_1 <= data_in[31:0];
-                        2'd2: reg_2 <= data_in[31:0];
-                        2'd3: reg_3 <= data_in[31:0];
+                        3'd1: reg_1 <= data_in[31:0];
+                        3'd2: reg_2 <= data_in[31:0];
+                        3'd3: reg_3 <= data_in[31:0];
+                        3'd4: reg_4 <= data_in[15:0];
                     endcase
                 end
             end else begin

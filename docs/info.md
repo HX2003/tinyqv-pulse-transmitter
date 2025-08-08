@@ -53,7 +53,7 @@ Combined together, total duration ticks = (duration + 2) << prescaler.
 Only aligned 32 bit writes are supported in general. However, 8 bit write is allowed at address 0x00 to aid in clearing interrupts, starting or stopping the program.
 
 ### REG_0
-| Bits  | Function                            |
+| Bits  | Name                                |
 |-------|-------------------------------------|
 | 0     | clear_timer_interrupt               |
 | 1     | clear_loop_interrupt                |
@@ -70,12 +70,11 @@ Only aligned 32 bit writes are supported in general. However, 8 bit write is all
 | 13    | idle_level                          |
 | 14    | invert_output                       |
 | 15    | carrier_en                          |
-| 31:16 | carrier_duration                    |
 
 To clear interrupts, start or stop the program, simply write a '1' to corresponding bit.
 
 ### REG_1
-| Bits  | Function                            |
+| Bits  | Name                                |
 |-------|-------------------------------------|
 | 6:0   | program_start_index                 |
 | 7     | *unused*                            |
@@ -86,7 +85,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | 31    | *unused*                            |
 
 ### REG_2
-| Bits  | Function                            |
+| Bits  | Name                                |
 |-------|-------------------------------------|
 | 7:0   | main_low_duration_a                 |
 | 15:8  | main_low_duration_b                 |
@@ -94,7 +93,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | 31:24 | main_high_duration_b                |
 
 ### REG_3
-| Bits  | Function                            |
+| Bits  | Name                                |
 |-------|-------------------------------------|
 | 7:0   | auxillary_mask                      |
 | 15:8  | auxillary_duration_a                |
@@ -102,9 +101,13 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | 27:24 | auxillary_prescaler                 |
 | 31:28 | main_prescaler                      |
 
+### REG_4
+| 15:0  | carrier_duration                    |
+| 31:16 | *unused*                            |
+
 ## Reading
 Read address does not matter as a fixed 32 bits of data are assigned to the `data_out` register. The bottom 8, 16 or all 32 bits are valid on read.
-| Bits  | Function                            |
+| Bits  | Name                                |
 |-------|-------------------------------------|
 | 0     | timer_interrupt_status              |
 | 1     | loop_interrupt_status               |

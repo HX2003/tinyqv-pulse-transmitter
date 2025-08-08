@@ -56,7 +56,6 @@ class Device:
         self.config_idle_level = 0
         self.config_invert_output = 0
         self.config_carrier_en = 0
-        self.config_carrier_duration = 0
 
         self.config_program_start_index = 0
         self.config_program_end_index = 0 
@@ -73,6 +72,8 @@ class Device:
         self.config_auxillary_duration_b = 0
         self.config_auxillary_prescaler = 0
         self.config_main_prescaler = 0
+
+        self.config_carrier_duration = 0
          
 
     async def write8_reg_0(self):
@@ -98,7 +99,6 @@ class Device:
             | (self.config_idle_level << 13) \
             | (self.config_invert_output << 14) \
             | (self.config_carrier_en << 15) \
-            | (self.config_carrier_duration << 16)
 
     async def write32_reg_1(self):
         reg1 = self.config_program_start_index \
@@ -120,6 +120,11 @@ class Device:
             | (self.config_main_prescaler << 28)
         
         await self.tqv.write_word_reg(12, reg3)
+
+    async def write32_reg_4(self):
+        reg4 = self.config_carrier_duration
+        
+        await self.tqv.write_word_reg(16, reg4)
 
     """ Start the program """
     async def start_program(self):
@@ -180,6 +185,7 @@ class Device:
         await self.write32_reg_1()
         await self.write32_reg_2()
         await self.write32_reg_3()
+        await self.write32_reg_4()
 
         word = 0
         count = 0
