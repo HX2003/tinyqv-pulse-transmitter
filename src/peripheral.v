@@ -226,7 +226,8 @@ module tqvp_hx2003_pulse_transmitter (
     // Combinatorics, multiplexer to obtain 2 bit symbol_data based on program_counter
     always @(*) begin
         // Extract 2-bit chunk based on sel
-        case (program_counter[3:0])
+        symbol_data = data_32[{program_counter[3:0], 1'b0} +: 2];
+        /*case (program_counter[3:0])
             4'd0:  symbol_data = data_32[1:0];
             4'd1:  symbol_data = data_32[3:2];
             4'd2:  symbol_data = data_32[5:4];
@@ -243,7 +244,7 @@ module tqvp_hx2003_pulse_transmitter (
             4'd13: symbol_data = data_32[27:26];
             4'd14: symbol_data = data_32[29:28];
             4'd15: symbol_data = data_32[31:30];
-        endcase
+        endcase*/
 
         transmit_level = symbol_data[1];
 
