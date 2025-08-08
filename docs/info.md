@@ -18,14 +18,38 @@ Author: Han
 Peripheral index: 11
 
 ## What it does
+Pulse transmitter is a versatile peripheral that can transmit digital waveforms of various durations, with optional support for carrier modulation. As such, various schemes like Pulse Distance, Pulse Width, Manchester encoding, etc. can be implemented. This makes it ideal for remote control transmitter applications. However, it can also be used to drive other devices like the WS2812B addressable LED.
 
-Pulse transmitter is a peripheral that can transmit up to 256 symbols, each having varying durations. You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up to 256 times or loop forever.
+### Specifications
+- 256 bits of program data memory
+- 24 bit duration timer (8 bit with prescaler)
+- 12 bit carrier timer
+- 9 bit program counter
+- 7 bit loop counter
+- 4 interrupts (that can be configured)
 
-Due to the limited amount of memory available, each symbol is encoded as follows:
+### Modes of operation
+Due to the limited amount of resources available, you can operate the pulse transmitter in 2 modes.
+
+| Mode                     | Description                                                                                       |
+|--------------------------|---------------------------------------------------------------------------------------------------|
+| 1bps (1 bits per symbol) | Support up to 256 symbols, each 1-bit symbol is expanded to 2 2-bit symbols via a lookup table.               |
+| 2bps (2 bits per symbol) | Support up to 128 symbols                                                                         |
+
+Each symbol is encoded as follows, in 2bps mode, you directly write this to the to the program data memory.
 | Bit 1          | Bit 0           |
 |----------------|-----------------|
 | TRANSMIT_LEVEL | DURATION_SELECT |
 
+In 1bps mode, each symbol is expanded to 2 symbols.
+| Value  | Symbol 1    |  Symbol 2  |
+|--------|-------------|-------------|
+| 0      | 2 bit value | 2 bit value |
+| 1      | 2 bit value | 2 bit value |
+
+### Extra features
+You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up to 128 times or loop forever.
+ 
 For the first 8 symbols at address 0x00, a 8 bit `auxillary_mask` is also available. Together, a 8 bit duration can be selected from one of the six lookup tables.
 
 | Auxillary Bit | Symbol Bit 1 | Symbol Bit 0 | Evaluated Duration   |
@@ -47,6 +71,7 @@ Combined together, total duration ticks = (duration + 2) << prescaler.
 | 0x04        | DATA  | W      | REG_1            |
 | 0x08        | DATA  | W      | REG_2            |
 | 0x0C        | DATA  | W      | REG_3            |
+| 0x10        | DATA  | W      | REG_4            |
 | 0x20 - 0x3F | DATA  | W      | PROGRAM_DATA_MEM |
 
 ## Writing
@@ -108,8 +133,11 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 ### REG_4
 | Bits  | Name                                |
 |-------|-------------------------------------|
-| 13:0  | carrier_duration                    |
-| 31:16 | *unused*                            |
+| 11:0  | carrier_duration (12 bits)          |
+| 31:13 | *unused*                            |
+
+### PROGRAM_DATA_MEM
+The program memory is mapped to the addresses 0x20 - 0x3F. Note, the initial value is undefined.
 
 ## Reading
 Read address does not matter as a fixed 32 bits of data are assigned to the `data_out` register. The bottom 8, 16 or all 32 bits are valid on read.
@@ -129,4 +157,4 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 ## How to test
 
 ## External hardware
-You may wish to test with a IR LED, I'm not sure about the current limits of the output pins, so use a buffer or transistor to drive the LED.
+You may wish to test with a IR LED, the output pins cannot deliver much current, so use a buffer or transistor to drive the LED.
