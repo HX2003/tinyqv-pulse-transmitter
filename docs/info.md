@@ -24,7 +24,7 @@ Pulse transmitter is a versatile peripheral that can transmit digital waveforms 
 - 256 bits of program data memory
 - 24 bit duration timer (8 bit with prescaler)
 - 12 bit carrier timer
-- 9 bit program counter
+- 8 + 1 bit program counter
 - 7 bit loop counter
 - 4 interrupts (that can be configured)
 
@@ -152,8 +152,8 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 | 7:5   | *unused* (value of 0)                |
 | 14:8  | program_counter                      |
 | 15    | *unused* (value of 0)                |
-| 24:16 | full_program_loop_counter (9 bits)   |
-| 31:25 | *unused* (value of 0)                |
+| 23:16 | program_loop_counter                 |
+| 31:24 | *unused* (value of 0)                |
 
 ## How to test
 

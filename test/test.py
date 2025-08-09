@@ -15,7 +15,6 @@ from tqv import TinyQV
 PERIPHERAL_NUM = 11
 
 MAX_DURATION = 255 # max duration you can put in the duration field
-MAX_PROGRAM_LEN = 128 # must be power of 2 as this also affects the rollover / wrapping
 
 MAX_PROGRAM_1BPS_LEN = 256 # must be power of 2 as this also affects the rollover / wrapping
 MAX_PROGRAM_2BPS_LEN = MAX_PROGRAM_1BPS_LEN >> 1 # divide by 2
@@ -370,10 +369,8 @@ class Device:
         waveform_len = len(waveform)
         output_valid = True
 
-        # We code the internal program counter a little differently in Python
-        # So instead of between 0 and 511 in the verilog, we use between 0 and 255
-        # In 2bps (2 bits per symbol) mode, program_counter is incremented by 2 each time (different from verilog)
-        # In 1bps (1 bits per symbol) mode, program_counter is incremented by 1 each time (different from verilog)
+        # In 2bps (2 bits per symbol) mode, program_counter is incremented by 2 each time
+        # In 1bps (1 bits per symbol) mode, program_counter is incremented by 1 each time
 
         internal_program_counter = self.config_program_start_index
 
@@ -837,7 +834,7 @@ async def basic_2bps_test13(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
     
     program = []
 
@@ -859,13 +856,13 @@ async def basic_2bps_test13(dut):
     await device.write_program_2bps(program)
     await device.test_expected_waveform_2bps(program)
 
-# Basic test MAX_PROGRAM_LEN number of symbols
+# Basic test MAX_PROGRAM_2BPS_LEN number of symbols
 @cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_2bps_test14(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
     
     program = []
 
@@ -885,13 +882,13 @@ async def basic_2bps_test14(dut):
     await device.write_program_2bps(program)
     await device.test_expected_waveform_2bps(program)
 
-# Basic test MAX_PROGRAM_LEN number of symbols with prescaler
+# Basic test MAX_PROGRAM_2BPS_LEN number of symbols with prescaler
 @cocotb.test(timeout_time=11, timeout_unit="ms")
 async def basic_2bps_test15(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
     
     program = []
 
@@ -1262,13 +1259,13 @@ async def advanced_2bps_test16(dut):
     await device.write_program_2bps(program)
     await device.test_expected_waveform_2bps(program)
 
-# Advanced test with looping a certain number of counts, with MAX_PROGRAM_LEN number of symbols
+# Advanced test with looping a certain number of counts, with MAX_PROGRAM_2BPS_LEN number of symbols
 @cocotb.test(timeout_time=2, timeout_unit="ms")
 async def advanced_2bps_test17(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
     
     program = []
 
@@ -1289,13 +1286,13 @@ async def advanced_2bps_test17(dut):
     await device.write_program_2bps(program)
     await device.test_expected_waveform_2bps(program)
 
-# Advanced test with looping a certain number of counts, with MAX_PROGRAM_LEN number of symbols
+# Advanced test with looping a certain number of counts, with MAX_PROGRAM_2BPS_LEN number of symbols
 @cocotb.test(timeout_time=15, timeout_unit="ms")
 async def advanced_2bps_test18(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
     
     program = []
 
@@ -1316,13 +1313,13 @@ async def advanced_2bps_test18(dut):
     await device.write_program_2bps(program)
     await device.test_expected_waveform_2bps(program)
 
-# Advanced test with looping a MAX_PROGRAM_LOOP_LEN times, with MAX_PROGRAM_LEN number of symbols
+# Advanced test with looping a MAX_PROGRAM_LOOP_LEN times, with MAX_PROGRAM_2BPS_LEN number of symbols
 @cocotb.test(timeout_time=15, timeout_unit="ms")
 async def advanced_2bps_test19(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
     
     program = []
 
@@ -1471,14 +1468,14 @@ async def elite_2bps_test3(dut):
     await device.write_program_2bps(program)
     await device.test_expected_waveform_2bps(program)
 
-# Elite test with looping and config_program_loopback_index set to exactly the (len(program) - 1) * 2, with MAX_PROGRAM_LEN number of symbols
+# Elite test with looping and config_program_loopback_index set to exactly the (len(program) - 1) * 2, with MAX_PROGRAM_2BPS_LEN number of symbols
 # So it should run from 0 to (len(program) - 1) * 2, then the last symbol is repeatedly sent
 @cocotb.test(timeout_time=2, timeout_unit="ms")
 async def elite_2bps_test4(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
 
     program = []
 
@@ -1500,14 +1497,14 @@ async def elite_2bps_test4(dut):
     await device.write_program_2bps(program)
     await device.test_expected_waveform_2bps(program)
 
-# Elite test with looping and config_program_loopback_index set to exactly the (len(program) - 2) * 2, with MAX_PROGRAM_LEN number of symbols
+# Elite test with looping and config_program_loopback_index set to exactly the (len(program) - 2) * 2, with MAX_PROGRAM_2BPS_LEN number of symbols
 # So it should run from 0 to (len(program) - 1) * 2 then the last 2 symbols is repeatedly sent
 @cocotb.test(timeout_time=2, timeout_unit="ms")
 async def elite_2bps_test5(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
 
     program = []
 
@@ -1538,7 +1535,7 @@ async def elite_2bps_test6(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
 
     program = []
 
@@ -1571,7 +1568,7 @@ async def elite_2bps_test7(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
 
     program = []
 
@@ -1781,7 +1778,7 @@ async def interrupt_2bps_test6(dut):
     device = Device(dut)
     await device.init()
 
-    program_len = MAX_PROGRAM_LEN
+    program_len = MAX_PROGRAM_2BPS_LEN
     
     program = []
 
