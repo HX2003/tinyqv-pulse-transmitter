@@ -22,7 +22,7 @@ MAX_PROGRAM_2BPS_LEN = MAX_PROGRAM_1BPS_LEN >> 1 # divide by 2
 # Note that with 2bps,
 # you need to multiply program_start_index, program_end_index, program_end_loopback_index by 2
 
-MAX_PROGRAM_LOOP_LEN = 128 # the actual value set is MAX_PROGRAM_LOOP_LEN - 1
+MAX_PROGRAM_LOOP_LEN = 256 # the actual value set is MAX_PROGRAM_LOOP_LEN - 1
 MAX_TEST_INFINITE_LOOP_LEN = 100
 
 class Device:

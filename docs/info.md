@@ -25,7 +25,7 @@ Pulse transmitter is a versatile peripheral that can transmit digital waveforms 
 - 24 bit duration timer (8 bit with prescaler)
 - 12 bit carrier timer
 - 8 + 1 bit program counter
-- 7 bit loop counter
+- 8 bit loop counter
 - 4 interrupts (that can be configured)
 
 ### Modes of operation
@@ -48,7 +48,7 @@ In 1bps mode, each symbol is expanded to 2 symbols.
 | 1      | 2 bit value | 2 bit value |
 
 ### Extra features
-You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up to 128 times or loop forever.
+You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up a certain number of times or loop forever.
  
 For the first 8 symbols at address 0x00, a 8 bit `auxillary_mask` is also available. Together, a 8 bit duration can be selected from one of the six lookup tables.
 
@@ -115,8 +115,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | 7:0   | program_start_index                 |
 | 15:8  | program_end_index                   |
 | 23:16 | program_end_loopback_index          |
-| 30:24 | program_loop_count (7 bits)         |
-| 31    | *unused*                            |
+| 31:24 | program_loop_count                  |
 
 ### REG_2
 | Bits  | Name                                |

@@ -10,7 +10,7 @@
 // Then edit tt_wrapper.v line 41 and change tqvp_example to your chosen module name.
 module tqvp_hx2003_pulse_transmitter # (
     CARRIER_TIMER_WIDTH = 12, // Do not change these parameters, as the register mapping will not be updated
-    LOOP_COUNTER_WIDTH = 7    // Do not change these parameters, as the register mapping will not be updated
+    LOOP_COUNTER_WIDTH = 8    // Do not change these parameters, as the register mapping will not be updated
 ) ( 
     input         clk,          // Clock - the TinyQV project clock is normally set to 64MHz.
     input         rst_n,        // Reset_n - low to reset.
@@ -65,9 +65,8 @@ module tqvp_hx2003_pulse_transmitter # (
     wire [7:0] config_program_start_index = reg_1[7:0];
     wire [7:0] config_program_end_index = reg_1[15:8];
     wire [7:0] config_program_loopback_index = reg_1[23:16];
-    wire [6:0] config_program_loop_count = reg_1[30:24];
-    wire _unused_reg_1_a = &{reg_1[31], 1'b0};
-
+    wire [7:0] config_program_loop_count = reg_1[31:24];
+ 
 
     reg [31:0] reg_2;
     wire [7:0] config_main_low_duration_a = reg_2[7:0];
@@ -313,7 +312,6 @@ module tqvp_hx2003_pulse_transmitter # (
     wire program_counter_increment_trigger = timer_request_data;
     
     // The program counter is 8 bits, so between 0 to 255
-    // However, we only expose the most significant 8 bits to the user.
     //
     // In 2bps (2 bits per symbol) mode, program_counter is incremented by 2 each time
     // can be any even value between 0 to 255 inclusive
@@ -420,8 +418,7 @@ module tqvp_hx2003_pulse_transmitter # (
     // Read address doesn't matter
     assign data_out[4:0] = reg_0[4:0];
     assign data_out[7:5] = 3'b0;
-    assign data_out[14:8] = program_loop_counter;
-    assign data_out[15] = 1'b0;
+    assign data_out[15:8] = program_loop_counter;
     assign data_out[23:16] = program_counter;
     assign data_out[31:24] = 8'b0;
 
