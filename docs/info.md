@@ -99,12 +99,13 @@ Only aligned 32 bit writes are supported in general. However, 8 bit write is all
 | 13    | idle_level                          |
 | 14    | invert_output                       |
 | 15    | carrier_en                          |
-| 16    | use_2bps                            |
-| 18:17 | low_symbol_0                        |
-| 20:19 | low_symbol_1                        |
-| 22:21 | high_symbol_0                       |
-| 24:23 | high_symbol_1                       |
-| 31:25 | *unused*                            |
+| 16    | downcount                           |
+| 17    | use_2bps                            |
+| 19:18 | low_symbol_0                        |
+| 21:20 | low_symbol_1                        |
+| 23:22 | high_symbol_0                       |
+| 25:24 | high_symbol_1                       |
+| 31:26 | *unused*                            |
 
 To clear interrupts, start or stop the program, simply write a '1' to corresponding bit.
 

@@ -52,11 +52,12 @@ module tqvp_hx2003_pulse_transmitter # (
     wire config_idle_level = reg_0[13];
     wire config_invert_output = reg_0[14];
     wire config_carrier_en = reg_0[15];
-    wire config_use_2bps = reg_0[16];
-    wire [1:0] config_low_symbol_0 = reg_0[18:17];
-    wire [1:0] config_low_symbol_1 = reg_0[20:19];
-    wire [1:0] config_high_symbol_0 = reg_0[22:21];
-    wire [1:0] config_high_symbol_1 = reg_0[24:23];
+    wire config_downcount = reg_0[16];
+    wire config_use_2bps = reg_0[17];
+    wire [1:0] config_low_symbol_0 = reg_0[19:18];
+    wire [1:0] config_low_symbol_1 = reg_0[21:20];
+    wire [1:0] config_high_symbol_0 = reg_0[23:22];
+    wire [1:0] config_high_symbol_1 = reg_0[25:24];
     wire _unused_reg_0_b = &{reg_0[31:25], 1'b0};
 
 
@@ -363,15 +364,46 @@ module tqvp_hx2003_pulse_transmitter # (
                         loop_interrupt <= 1'b1;
                     end
                 end else begin
-                    if (config_use_2bps) begin
-                        program_counter <= program_counter + 2;
+                    // Less utilization
+                    if (config_downcount) begin
+                        if (config_use_2bps) begin
+                            program_counter <= program_counter - 2;
+                        end else begin
+                            sequence_done_in_1bps <= !sequence_done_in_1bps;
+
+                            if (sequence_done_in_1bps) begin
+                                program_counter <= program_counter - 1;
+                            end
+                        end
+                    end else begin
+                        if (config_use_2bps) begin
+                            program_counter <= program_counter + 2;
+                        end else begin
+                            sequence_done_in_1bps <= !sequence_done_in_1bps;
+
+                            if (sequence_done_in_1bps) begin
+                                program_counter <= program_counter + 1;
+                            end
+                        end
+                    end
+
+                    /*if (config_use_2bps) begin
+                        if (config_downcount) begin
+                            program_counter <= program_counter - 2;
+                        end else begin
+                            program_counter <= program_counter + 2;
+                        end
                     end else begin
                         sequence_done_in_1bps <= !sequence_done_in_1bps;
 
                         if (sequence_done_in_1bps) begin
-                            program_counter <= program_counter + 1;
+                            if (config_downcount) begin
+                                program_counter <= program_counter - 1;
+                            end else begin
+                                program_counter <= program_counter + 1;
+                            end
                         end
-                    end
+                    end*/
                 end
             end
         end

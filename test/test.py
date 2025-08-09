@@ -62,6 +62,7 @@ class Device:
         self.config_idle_level = 0
         self.config_invert_output = 0
         self.config_carrier_en = 0
+        self.config_downcount = 0
         self.config_use_2bps = 0
         self.config_low_symbol_0 = 0
         self.config_low_symbol_1 = 0
@@ -110,11 +111,12 @@ class Device:
             | (self.config_idle_level << 13) \
             | (self.config_invert_output << 14) \
             | (self.config_carrier_en << 15) \
-            | (self.config_use_2bps << 16) \
-            | (self.config_low_symbol_0 << 17) \
-            | (self.config_low_symbol_1 << 19) \
-            | (self.config_high_symbol_0 << 21) \
-            | (self.config_high_symbol_1 << 23) \
+            | (self.config_downcount << 16) \
+            | (self.config_use_2bps << 17) \
+            | (self.config_low_symbol_0 << 18) \
+            | (self.config_low_symbol_1 << 20) \
+            | (self.config_high_symbol_0 << 22) \
+            | (self.config_high_symbol_1 << 24) \
             
     async def write32_reg_1(self):
         reg1 = self.config_program_start_index \
