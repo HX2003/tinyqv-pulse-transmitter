@@ -323,7 +323,7 @@ module tqvp_hx2003_pulse_transmitter # (
     // can be any value between 0 to 255
 
     reg [8:0] program_counter;
-    reg [(LOOP_COUNTER_WIDTH - 1):0] program_loop_counter; // add 1 more bit for the rollover detector
+    reg [(LOOP_COUNTER_WIDTH - 1):0] program_loop_counter;
     reg program_end_of_file;
     reg loop_interrupt; // should only be activated for 1 pulse
     reg program_counter_mid_interrupt; // should only be activated for 1 pulse

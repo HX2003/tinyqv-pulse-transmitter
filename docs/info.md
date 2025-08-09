@@ -67,12 +67,16 @@ Combined together, total duration ticks = (duration + 2) << prescaler.
 ## Register map
 | Address     | Name  | Access | Description      |
 |-------------|-------|--------|------------------|
-| 0x00        | DATA  | R*/W*  | REG_0            |
+| 0x00        | DATA  | W*     | REG_0            |
 | 0x04        | DATA  | W      | REG_1            |
 | 0x08        | DATA  | W      | REG_2            |
 | 0x0C        | DATA  | W      | REG_3            |
 | 0x10        | DATA  | W      | REG_4            |
 | 0x20 - 0x3F | DATA  | W      | PROGRAM_DATA_MEM |
+
+The 5 configuration registers are initialized to 0. 
+
+For the program memory, the initial value is undefined.
 
 ## Writing
 Only aligned 32 bit writes are supported in general. However, 8 bit write is allowed at address 0x00 to aid in clearing interrupts, starting or stopping the program.
@@ -134,10 +138,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | Bits  | Name                                |
 |-------|-------------------------------------|
 | 11:0  | carrier_duration (12 bits)          |
-| 31:13 | *unused*                            |
-
-### PROGRAM_DATA_MEM
-The program memory is mapped to the addresses 0x20 - 0x3F. Note, the initial value is undefined.
+| 31:12 | *unused*                            |
 
 ## Reading
 Read address does not matter as a fixed 32 bits of data are assigned to the `data_out` register. The bottom 8, 16 or all 32 bits are valid on read.

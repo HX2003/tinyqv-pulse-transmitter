@@ -608,11 +608,11 @@ async def encoded_1bps_test5(dut):
     device.config_high_symbol_0 = 0b11
     device.config_high_symbol_1 = 0b01
     
-    device.config_main_low_duration_a = 52 # Target 350ns, actual 343.75 ns
-    device.config_main_low_duration_b = 20  # Target 850ns, actual 843.75 ns
+    device.config_main_low_duration_a = 52   # Target 850 ns, actual 843.75 ns
+    device.config_main_low_duration_b = 20   # Target 350 ns, actual 343.75 ns
 
-    device.config_main_high_duration_a = 20  # Target 800ns, actual 843.75 ns
-    device.config_main_high_duration_b = 52  # Target 350ns, actual 343.75 ns
+    device.config_main_high_duration_a = 20  # Target 350 ns, actual 343.75 ns
+    device.config_main_high_duration_b = 52  # Target 800 ns, actual 843.75 ns
 
     await device.write_program_1bps(program)
     await device.test_expected_waveform_1bps(program)
