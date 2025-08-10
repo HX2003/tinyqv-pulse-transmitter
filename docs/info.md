@@ -18,7 +18,7 @@ Author: Han
 Peripheral index: 11
 
 ## What it does
-Pulse transmitter is a versatile peripheral that can transmit digital waveforms of various durations, with optional support for carrier modulation. As such, various schemes like Pulse Distance, Pulse Width, Manchester encoding, etc. can be implemented. This makes it ideal for remote control transmitter applications. However, it can also be used to drive other devices like the WS2812B addressable LED.
+Pulse transmitter is a versatile peripheral that can transmit digital waveforms of various durations, with optional support for carrier modulation. Various schemes like Pulse Distance, Pulse Width, Manchester encoding, etc. can be implemented. This makes it ideal for remote control transmitter applications. However, it can also be used to drive other devices like the WS2812B addressable LED.
 
 ### Specifications
 - 256 bits of program data memory
@@ -26,14 +26,17 @@ Pulse transmitter is a versatile peripheral that can transmit digital waveforms 
 - 12 bit carrier timer
 - 8 + 1 bit program counter
 - 8 bit loop counter
-- 4 configurable interrupts
+- 4 configurable interrupts (not shown in the architecture diagram)
+
+### Architecture
+![Pulse Transmitter Architecture](tinyQV-pulse-transmitter-architecture.drawio.svg)
 
 ### Modes of operation
 Due to the limited amount of resources available, you can operate the pulse transmitter in 2 modes.
 
 | Mode                     | Description                                                                                       |
 |--------------------------|---------------------------------------------------------------------------------------------------|
-| 1bps (1 bits per symbol) | Support up to 256 symbols, each 1-bit symbol is expanded to 2 2-bit symbols via a lookup table.               |
+| 1bps (1 bits per symbol) | Support up to 256 symbols, each 1-bit symbol is expanded to 2, 2-bit symbols via a lookup table   |
 | 2bps (2 bits per symbol) | Support up to 128 symbols                                                                         |
 
 Each symbol is encoded as follows, in 2bps mode, you directly write this to the to the program data memory.
@@ -42,13 +45,13 @@ Each symbol is encoded as follows, in 2bps mode, you directly write this to the 
 | TRANSMIT_LEVEL | DURATION_SELECT |
 
 In 1bps mode, each symbol is expanded to 2 symbols.
-| Value  | Symbol 1    |  Symbol 2  |
-|--------|-------------|-------------|
-| 0      | 2 bit value | 2 bit value |
-| 1      | 2 bit value | 2 bit value |
+| Value  | First symbol       |  Second symbol     |
+|--------|--------------------|--------------------|
+| 0      | low_symbol_0[1:0]  | low_symbol_1[1:0]  |
+| 1      | high_symbol_0[1:0] | high_symbol_1[1:0] |
 
 ### Extra features
-You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up a certain number of times or loop forever.
+You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up a certain number of times or loop forever. Moreover, instead of counting up, you can count down and send bits in reverse.
  
 For the first 8 symbols at address 0x00, a 8 bit `auxillary_mask` is also available. Together, a 8 bit duration can be selected from one of the six lookup tables.
 
@@ -155,7 +158,312 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 | 23:16 | program_loop_counter                 |
 | 31:24 | *unused* (value of 0)                |
 
-## How to test
+## Pin mappings
+| Pin       | Value          | Description                             |
+|-----------|----------------|-----------------------------------------|
+| uo_out[0] | 0              |                                         |
+| uo_out[1] | 0              |                                         |
+| uo_out[2] | carrier_out    | Square wave from carrier                |
+| uo_out[3] | valid_output   | High when output is active              |
+| uo_out[4] | final_output   | Pulse transmitter output (duplicated)   |
+| uo_out[5] | final_output   | Pulse transmitter output (duplicated)   |
+| uo_out[6] | final_output   | Pulse transmitter output (duplicated)   |
+| uo_out[7] | final_output   | Pulse transmitter output (duplicated)   |
 
+## How to test
+### Use with TinyQV C SDK
+```
+#define PULSE_TRANSMITTER_ADDRESS 0x80002C0
+
+// Register struct definitions
+// Store these struct in RAM, and write to the peripheral.
+// Do not read directly from the address, it will not give back the struct.
+typedef union {
+    struct {
+        uint8_t clear_timer_interrupt               : 1; // [0]
+        uint8_t clear_loop_interrupt                : 1; // [1]
+        uint8_t clear_program_end_interrupt         : 1; // [2]
+        uint8_t clear_program_counter_mid_interrupt : 1; // [3]
+        uint8_t start_program                       : 1; // [4]
+        uint8_t stop_program                        : 1; // [5]
+        uint8_t _unused_reg_0_a                     : 2; // [7:6]
+    };
+    uint8_t val;
+} pulse_transmitter_write8_reg_0_t;
+
+typedef union {
+    struct {
+        uint32_t clear_timer_interrupt               : 1; // [0]
+        uint32_t clear_loop_interrupt                : 1; // [1]
+        uint32_t clear_program_end_interrupt         : 1; // [2]
+        uint32_t clear_program_counter_mid_interrupt : 1; // [3]
+        uint32_t start_program                       : 1; // [4]
+        uint32_t stop_program                        : 1; // [5]
+        uint32_t _unused_reg_0_a                     : 2; // [7:6]
+        uint32_t timer_interrupt_en                  : 1; // [8]
+        uint32_t loop_interrupt_en                   : 1; // [9]
+        uint32_t program_end_interrupt_en            : 1; // [10]
+        uint32_t program_counter_mid_interrupt_en    : 1; // [11]
+        uint32_t loop_forever                        : 1; // [12]
+        uint32_t idle_level                          : 1; // [13]
+        uint32_t invert_output                       : 1; // [14]
+        uint32_t carrier_en                          : 1; // [15]
+        uint32_t downcount                           : 1; // [16]
+        uint32_t use_2bps                            : 1; // [17]
+        uint32_t low_symbol_0                        : 2; // [19:18]
+        uint32_t low_symbol_1                        : 2; // [21:20]
+        uint32_t high_symbol_0                       : 2; // [23:22]
+        uint32_t high_symbol_1                       : 2; // [25:24]
+        uint32_t _unused_reg_0_b                     : 5; // [31:26]
+    };
+    uint32_t val;
+} pulse_transmitter_write_reg_0_t;
+
+typedef union {
+    struct {
+        uint32_t program_start_index    : 8;  // [7:0]
+        uint32_t program_end_index      : 8;  // [15:8]
+        uint32_t program_loopback_index : 8;  // [23:16]
+        uint32_t program_loop_count     : 8;  // [31:24]
+    };
+    uint32_t val;   
+} pulse_transmitter_write_reg_1_t;
+
+typedef union {
+    struct {
+        uint32_t main_low_duration_a    : 8;  // [7:0]
+        uint32_t main_low_duration_b    : 8;  // [15:8]
+        uint32_t main_high_duration_a   : 8;  // [23:16]
+        uint32_t main_high_duration_b   : 8;  // [31:24]
+    };
+    uint32_t val;   
+} pulse_transmitter_write_reg_2_t;
+
+typedef union {
+    struct {
+        uint32_t auxillary_mask         : 8;  // [7:0]
+        uint32_t auxillary_duration_a   : 8;  // [15:8]
+        uint32_t auxillary_duration_b   : 8;  // [23:16]
+        uint32_t auxillary_prescaler    : 4;  // [27:24]
+        uint32_t main_prescaler         : 4;  // [31:28]
+    };
+    uint32_t val;   
+} pulse_transmitter_write_reg_3_t;
+
+typedef union {
+    struct {
+        uint32_t carrier_duration       : 12;  // [11:0]
+        uint32_t _unused_reg_4_a        : 20;  // [31:12]
+    };
+    uint32_t val;
+} pulse_transmitter_write_reg_4_t;
+
+typedef union {
+    struct {
+        uint8_t timer_interrupt_status               : 1; // [0]
+        uint8_t loop_interrupt                       : 1; // [1]
+        uint8_t program_end_interrupt                : 1; // [2]
+        uint8_t program_counter_mid_interrupt_status : 1; // [3]
+        uint8_t program_status                       : 1; // [4]
+        uint8_t _unused_reg_0                        : 3; // [7:5]
+    };
+    uint8_t val;   
+} pulse_transmitter_read8_reg_t;
+
+typedef union {
+    struct {
+        uint32_t timer_interrupt_status               : 1; // [0]
+        uint32_t loop_interrupt                       : 1; // [1]
+        uint32_t program_end_interrupt                : 1; // [2]
+        uint32_t program_counter_mid_interrupt_status : 1; // [3]
+        uint32_t program_status                       : 1; // [4]
+        uint32_t _unused_reg_a                        : 3; // [7:5]
+        uint32_t program_loop_counter                 : 8;  // [15:8]
+        uint32_t program_counter                      : 8;  // [23:16]
+        uint32_t _unused_reg_b                        : 8;  // [31:24]
+    };
+    uint32_t val;   
+} pulse_transmitter_read_reg_t;
+```
+
+#### NEC Remote Control Procotol
+This protocol uses pulse distance encoding, and requires 38kHz modulation which is simple enough. However, there needs to be a 9 ms high, and 4.5ms low pulse to initiate the transmission. This can be handled by the auxillary mask.
+```
+#include <stdbool.h>
+#include <csr.h>
+#include <uart.h>
+#define printf uart_printf
+#include <gpio.h>
+
+int main() {
+    // Set all outputs to regular mode (not debug)
+    set_debug_sel(0xff);
+
+    set_gpio_func(2, 11); // Set out2 to pulse transmitter, peripheral 11
+    set_gpio_func(3, 11); // Set out3 to pulse transmitter, peripheral 11
+    set_gpio_func(4, 11); // Set out4 to pulse transmitter, peripheral 11
+
+    uint8_t address = 36;
+    uint8_t command = 88;
+
+    pulse_transmitter_write_reg_0_t reg_0 = {0};
+    reg_0.carrier_en = 1;
+    reg_0.low_symbol_0 = 0b10;
+    reg_0.low_symbol_1 = 0b00;
+    reg_0.high_symbol_0 = 0b10;
+    reg_0.high_symbol_1 = 0b01;
+
+    pulse_transmitter_write_reg_1_t reg_1 = {0};
+    reg_1.program_end_index = 33; // We need to add extra 1 bit for the header, and 1 bit for the stop bit
+    
+    // For the duration and timer, it can be calculated by
+    // For 21 MHz, 1 tick is 47.619 ns
+    // For 64 MHz, 1 tick is 15.625 ns
+    // total duration ticks = (duration + 2) << prescaler. (or just (duration + 2) * 2ᵖʳᵉˢᶜᵃˡᵉʳ)
+    //
+    // For 21 MHz,
+    // For 563 us, we want 11823 ticks.
+    // For 1687 us, we want 35427 ticks.
+    // For 9 ms, we want 189000 ticks
+    // For 4.5 ms, we want 94500 ticks
+    //
+    // For 64 MHz,
+    // For 563 us, we want 36032 ticks.
+    // For 1687 us, we want 107968 ticks.
+    // For 9 ms, we want 576000 ticks
+    // For 4.5 ms, we want 288000 ticks
+
+    // For 21 MHz,
+    pulse_transmitter_write_reg_2_t reg_2 = {0};
+    reg_2.main_low_duration_a = 44;  // Approximately 563 us
+    reg_2.main_low_duration_b = 136; // Approximately 1687 us
+    reg_2.main_high_duration_a = 44; // Approximately 563 us
+
+    pulse_transmitter_write_reg_3_t reg_3 = {0};
+    reg_3.auxillary_mask = 0b00000001;
+    reg_3.auxillary_duration_a = 183; // Approximately 9 ms
+    reg_3.auxillary_duration_b = 90;  // Approximately 4.5 ms
+    reg_3.auxillary_prescaler = 10;
+    reg_3.main_prescaler = 8;
+
+    // For the carrier_duration, it can be calculated by
+    // reg_4.carrier_duration = CLOCK_FREQ / (DESIRED_CARRIER_FREQ * 2) - 2
+    // For 21 MHz, and 38kHz carrier. reg_4.carrier_duration = 274
+    // For 64 MHz, and 38kHz carrier. reg_4.carrier_duration = 840
+    pulse_transmitter_write_reg_4_t reg_4 = {0};
+    reg_4.carrier_duration = 274;
+
+    pulse_transmitter_write8_reg_0_t reg8_0 = {0};
+    reg8_0.start_program = 1;
+
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS) = reg_0.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 4) = reg_1.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 8) = reg_2.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 12) = reg_3.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 16) = reg_4.val;
+
+    // We need to add extra 1 bit for the header, and 1 bit for the stop bit
+    const uint32_t data0 = 0b1 
+                            | (address << 1) 
+                            | ((~address & 0xFF) << 9)
+                            | (command << 17) 
+                            | ((~command & 0x7F) << 25);
+    const uint32_t data1 = (~command) >> 7;
+    
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 32) = data0;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 32 + 4) = data1;
+
+    while(true) { 
+        *(volatile uint8_t *)(PULSE_TRANSMITTER_ADDRESS) = reg8_0.val;
+        delay_us(500 * 1000);
+    }
+}
+```
+
+#### WS2812B Addressable LED
+The WS2812B needs the bits to be sent MSB (Most Significant Bit) first. Reversing the bits using the CPU is highly inefficient (at least without the bit reverse instruction). Thankfully, we can take advantage of a trick where program counter can count down instead, this effectively sends the bits in reverse.
+
+```
+#include <stdbool.h>
+#include <csr.h>
+#include <uart.h>
+#define printf uart_printf
+#include <gpio.h>
+
+int main() {
+    // Set all outputs to regular mode (not debug)
+    set_debug_sel(0xff);
+
+    set_gpio_func(2, 11); // Set out2 to pulse transmitter, peripheral 11
+    set_gpio_func(3, 11); // Set out3 to pulse transmitter, peripheral 11
+    set_gpio_func(4, 11); // Set out4 to pulse transmitter, peripheral 11
+
+    pulse_transmitter_write_reg_0_t reg_0 = {0};
+    reg_0.downcount = 1;
+    reg_0.low_symbol_0 = 0b10;
+    reg_0.low_symbol_1 = 0b00;
+    reg_0.high_symbol_0 = 0b11;
+    reg_0.high_symbol_1 = 0b01;
+
+    pulse_transmitter_write_reg_1_t reg_1 = {0};
+    reg_1.program_start_index = 255; // You can start at a lower number too, not just 255
+    reg_1.program_end_index = 255 - 24 + 1;
+    reg_1.program_loop_count = 1;
+
+    // For the duration and timer, it can be calculated by
+    // For 21 MHz, 1 tick is 47.619 ns
+    // For 64 MHz, 1 tick is 15.625 ns
+    // total duration ticks = (duration + 2) << prescaler. (or just (duration + 2) * 2ᵖʳᵉˢᶜᵃˡᵉʳ)
+    //
+    // We do not need any prescaler.
+    //
+    // For 21 MHz,
+    // For 350 ns, we want 7 ticks.
+    // For 850 ns, we want 18 ticks.
+    //
+    // For 64 MHz,
+    // For 350 ns, we want 22 ticks.
+    // For 850 ns, we want 54 ticks.
+
+    // These numbers are for set for 20 MHz clock (not 64 MHz) 
+    pulse_transmitter_write_reg_2_t reg_2 = {0};
+    reg_2.main_low_duration_a = 16;  // Approximately 850 ns
+    reg_2.main_low_duration_b = 5;   // Approximately 350 ns
+    reg_2.main_high_duration_a = 5;  // Approximately 350 ns
+    reg_2.main_high_duration_b = 16;  // Approximately 850 ns
+
+    pulse_transmitter_write8_reg_0_t reg8_0 = {0};
+    reg8_0.start_program = 1;
+
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS) = reg_0.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 4) = reg_1.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 8) = reg_2.val;
+
+    while(true) {
+    for (int t = 0; t < 255; t++) {
+            // you can use this for testing as the code for HsvToRgb was obtained online
+            // uint32_t color = t << 24; // animated green colour
+
+            HsvColor hsv;
+            hsv.h = t;
+            hsv.s = 255;
+            hsv.v = 255;
+ 
+            RgbColor rgb = HsvToRgb(hsv);
+
+            uint32_t color = (rgb.b << 24) | (rgb.r << 16) | (rgb.g << 8);
+             
+            *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 32 + 28) = color;
+
+            printf("The colour is %d\n", color);
+
+            *(volatile uint8_t *)(PULSE_TRANSMITTER_ADDRESS) = reg8_0.val;
+
+            delay_us(5000);
+            printf("Read pulse transmitter %d\n", *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS));
+        }
+    }
+}
+```
 ## External hardware
-You may wish to test with a IR LED, the output pins cannot deliver much current, so use a buffer or transistor to drive the LED.
+For testing with an IR LED, the output pins cannot deliver much current, so use a buffer or transistor to drive the LED.
