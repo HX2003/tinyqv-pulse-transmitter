@@ -22,11 +22,11 @@ Pulse transmitter is a versatile peripheral that can transmit digital waveforms 
 
 ### Specifications
 - 256 bits of program data memory
-- 24 bit duration timer (8 bit with prescaler)
+- 24 bit duration counter (8 bit with prescaler)
 - 12 bit carrier timer
 - 8 + 1 bit program counter
 - 8 bit loop counter
-- 4 interrupts (that can be configured)
+- 4 configurable interrupts
 
 ### Modes of operation
 Due to the limited amount of resources available, you can operate the pulse transmitter in 2 modes.
