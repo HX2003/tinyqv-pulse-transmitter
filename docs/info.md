@@ -410,8 +410,6 @@ int main() {
     reg_1.program_start_index = 23;
     reg_1.program_end_index = 0;
     reg_1.program_loop_count = 1;
-    
-    //reg_1.program_end_index = 24 - 1;
 
     // For the duration and timer, it can be calculated by
     // For 21 MHz, 1 tick is 47.619 ns
