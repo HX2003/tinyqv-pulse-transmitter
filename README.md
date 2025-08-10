@@ -89,7 +89,7 @@ then to run your test, from the `test` directory:
 
     make -B my_peripheral.test
 
-The compressed waveform will be in `sim_build/rtl/tb.fst`
+The compressed waveform will be in `my_peripheral.fst` in the `test` directory.
 
 ### Add your docs to docs/user_peripherals
 
