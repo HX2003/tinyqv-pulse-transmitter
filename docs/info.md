@@ -29,7 +29,7 @@ Pulse transmitter is a versatile peripheral that can transmit digital waveforms 
 - 4 configurable interrupts (not shown in the architecture diagram)
 
 ### Architecture
-![Pulse Transmitter Architecture](tinyQV-pulse-transmitter-architecture.drawio.svg)
+![Pulse Transmitter Architecture](11_pulse_transmitter_architecture.drawio.svg)
 
 ### Modes of operation
 Due to the limited amount of resources available, you can operate the pulse transmitter in 2 modes.
