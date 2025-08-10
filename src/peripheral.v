@@ -58,7 +58,7 @@ module tqvp_hx2003_pulse_transmitter # (
     wire [1:0] config_low_symbol_1 = reg_0[21:20];
     wire [1:0] config_high_symbol_0 = reg_0[23:22];
     wire [1:0] config_high_symbol_1 = reg_0[25:24];
-    wire _unused_reg_0_b = &{reg_0[31:25], 1'b0};
+    wire _unused_reg_0_b = &{reg_0[31:26], 1'b0};
 
 
     reg [31:0] reg_1;
