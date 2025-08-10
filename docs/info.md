@@ -408,6 +408,7 @@ int main() {
 
     pulse_transmitter_write_reg_1_t reg_1 = {0};
     reg_1.program_start_index = 23;
+    reg_1.program_loopback_index = 23;
     reg_1.program_end_index = 0;
     reg_1.program_loop_count = 1;
 
