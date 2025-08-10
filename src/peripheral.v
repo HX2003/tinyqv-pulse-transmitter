@@ -345,63 +345,47 @@ module tqvp_hx2003_pulse_transmitter # (
             program_counter_mid_interrupt <= 0; // default value, can be overridden later
 
             if (program_counter_increment_trigger) begin
-                // We only want the interrupt to trigger once
-                if ((program_counter == 128) && sequence_done_in_1bps == 0) begin
-                    program_counter_mid_interrupt <= 1'b1;
-                end
-
-                if (program_counter == config_program_end_index) begin
-                    if (!config_loop_forever && (program_loop_counter == 0)) begin
-                        // Set program_end_of_file
-                        // But do not disable output yet, as the preloaded values are not yet flushed out
-                        program_end_of_file <= 1;
-                    end else begin
-                        // We want to loop, set the program counter
-                        program_counter <= config_program_loopback_index;
-                        program_loop_counter <= program_loop_counter - 1;
-                        loop_interrupt <= 1'b1;
-                    end
-                end else begin
-                    // Less utilization
-                    if (config_downcount) begin
-                        if (config_use_2bps) begin
-                            program_counter <= program_counter - 2;
-                        end else begin
-                            sequence_done_in_1bps <= !sequence_done_in_1bps;
-
-                            if (sequence_done_in_1bps) begin
-                                program_counter <= program_counter - 1;
-                            end
-                        end
-                    end else begin
-                        if (config_use_2bps) begin
-                            program_counter <= program_counter + 2;
-                        end else begin
-                            sequence_done_in_1bps <= !sequence_done_in_1bps;
-
-                            if (sequence_done_in_1bps) begin
-                                program_counter <= program_counter + 1;
-                            end
-                        end
+                // Toggle this every time,
+                // In 1bps mode: it starts from 0 -> 1 -> 0 -> 1 -> 0 -> ...
+                // only when sequence_done_in_1bps is 1 when something is done, so program_counter is incremented half as often 
+                //
+                // In 2bps mode: sequence_done_in_1bps will be ignored
+                sequence_done_in_1bps <= !sequence_done_in_1bps;
+                
+                if(config_use_2bps || sequence_done_in_1bps) begin
+                    // We only want the interrupt to trigger once every time the program counter is at 128
+                    // Note, this does not mean it triggers at this interval
+                    if (program_counter == 128) begin
+                        program_counter_mid_interrupt <= 1'b1;
                     end
 
-                    /*if (config_use_2bps) begin
+                    if (program_counter == config_program_end_index) begin
+                        if (!config_loop_forever && (program_loop_counter == 0)) begin
+                            // Set program_end_of_file
+                            // But do not disable output yet, as the preloaded values are not yet flushed out
+                            program_end_of_file <= 1;
+                        end else begin
+                            // We want to loop, set the program counter
+                            program_counter <= config_program_loopback_index;
+                            program_loop_counter <= program_loop_counter - 1;
+                            loop_interrupt <= 1'b1;
+                        end
+                    end else begin
+                        // Less utilization
                         if (config_downcount) begin
-                            program_counter <= program_counter - 2;
-                        end else begin
-                            program_counter <= program_counter + 2;
-                        end
-                    end else begin
-                        sequence_done_in_1bps <= !sequence_done_in_1bps;
-
-                        if (sequence_done_in_1bps) begin
-                            if (config_downcount) begin
+                            if (config_use_2bps) begin
+                                program_counter <= program_counter - 2;
+                            end else begin
                                 program_counter <= program_counter - 1;
+                            end
+                        end else begin
+                            if (config_use_2bps) begin
+                                program_counter <= program_counter + 2;
                             end else begin
                                 program_counter <= program_counter + 1;
                             end
                         end
-                    end*/
+                    end
                 end
             end
         end

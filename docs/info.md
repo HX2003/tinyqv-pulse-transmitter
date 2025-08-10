@@ -407,9 +407,11 @@ int main() {
     reg_0.high_symbol_1 = 0b01;
 
     pulse_transmitter_write_reg_1_t reg_1 = {0};
-    reg_1.program_start_index = 255; // You can start at a lower number too, not just 255
-    reg_1.program_end_index = 255 - 24 + 1;
+    reg_1.program_start_index = 23;
+    reg_1.program_end_index = 0;
     reg_1.program_loop_count = 1;
+    
+    //reg_1.program_end_index = 24 - 1;
 
     // For the duration and timer, it can be calculated by
     // For 21 MHz, 1 tick is 47.619 ns
@@ -443,7 +445,7 @@ int main() {
     while(true) {
     for (int t = 0; t < 255; t++) {
             // you can use this for testing as the code for HsvToRgb was obtained online
-            // uint32_t color = t << 24; // animated green colour
+            //uint32_t color = t;  // animated blue
 
             HsvColor hsv;
             hsv.h = t;
@@ -452,9 +454,9 @@ int main() {
  
             RgbColor rgb = HsvToRgb(hsv);
 
-            uint32_t color = (rgb.b << 24) | (rgb.r << 16) | (rgb.g << 8);
+            uint32_t color = (rgb.b << 16) | rgb.r << 8 | rgb.g;
              
-            *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 32 + 28) = color;
+            *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 32) = color;
 
             printf("The colour is %d\n", color);
 

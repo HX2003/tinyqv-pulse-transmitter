@@ -412,14 +412,22 @@ class Device:
                 else:
                     output_valid = False
             else:
-                if (self.config_use_2bps):
-                    internal_program_counter += 2
+                if (self.config_downcount):
+                    if (self.config_use_2bps):
+                        internal_program_counter -= 2
+                    else:
+                        internal_program_counter -= 1
                 else:
-                    internal_program_counter += 1
-                
+                    if (self.config_use_2bps):
+                        internal_program_counter += 2
+                    else:
+                        internal_program_counter += 1
+                 
                 # Simulate rollover / wrapping
                 if(internal_program_counter >= MAX_PROGRAM_1BPS_LEN):
-                    internal_program_counter = 0
+                    internal_program_counter = internal_program_counter - MAX_PROGRAM_1BPS_LEN
+                elif(internal_program_counter < 0):
+                    internal_program_counter = internal_program_counter + MAX_PROGRAM_1BPS_LEN
         
         if(not self.config_loop_forever): # do not check if config_loop_forever is enabled
             # lets check the idle state is correct for the next n number of cycles for good measure
@@ -431,6 +439,37 @@ class Device:
             for i in range(total_duration):
                 assert self.dut.uo_out[4].value == (self.config_idle_level ^ self.config_invert_output)
                 await ClockCycles(self.dut.clk, 1)
+
+
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def encoded_1bps_test1(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [1, 0]
+    
+    device.config_program_end_index = len(program) - 1
+    device.config_main_high_duration_a = 0
+
+    # Note (1, 0) means 0b01, I know.... :(
+
+    # A low bit indicates the following symbol sequence: [(0, 1), (0, 0)]
+    device.config_low_symbol_0 = 0b10
+    device.config_low_symbol_1 = 0b00
+    
+    # A high bit indicates the following symbol sequence: [(0, 1), (1, 0)]
+    device.config_high_symbol_0 = 0b10
+    device.config_high_symbol_1 = 0b01
+    
+    device.config_main_low_duration_a = 5
+    device.config_main_low_duration_b = 10 # longer
+
+    device.config_main_high_duration_a = 5
+    #device.config_main_high_duration_b is unused
+
+    await device.write_program_1bps(program)
+    await device.test_expected_waveform_1bps(program)
+
 
 #  Simulate Pulse Distance Encoding
 @cocotb.test(timeout_time=2, timeout_unit="ms")
@@ -600,6 +639,42 @@ async def encoded_1bps_test5(dut):
     program = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
     
     device.config_program_end_index = len(program) - 1
+
+    device.config_low_symbol_0 = 0b10
+    device.config_low_symbol_1 = 0b00
+    
+    device.config_high_symbol_0 = 0b11
+    device.config_high_symbol_1 = 0b01
+    
+    device.config_main_low_duration_a = 52   # Target 850 ns, actual 843.75 ns
+    device.config_main_low_duration_b = 20   # Target 350 ns, actual 343.75 ns
+
+    device.config_main_high_duration_a = 20  # Target 350 ns, actual 343.75 ns
+    device.config_main_high_duration_b = 52  # Target 800 ns, actual 843.75 ns
+
+    await device.write_program_1bps(program)
+    await device.test_expected_waveform_1bps(program)
+
+# Simulate WS2812B timings, with down counting, and loop. To repeat the colour on multiple pixels.
+# There are different timings online, so I just settled on this:
+# T0H -> 350 ns
+# T1H -> 800 ns
+# T0L -> 800 ns
+# T1H -> 350 ns
+# Assuming we are running at 64 MHz, we will get a good 15.625 ns resolution
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def encoded_1bps_test6(dut):
+    device = Device(dut)
+    await device.init()
+
+    program = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
+    
+    device.config_downcount = 1
+    device.config_program_start_index = len(program) - 1
+    device.config_program_loopback_index = len(program) - 1
+    device.config_program_end_index = 0
+
+    device.config_program_loop_count = 1
 
     device.config_low_symbol_0 = 0b10
     device.config_low_symbol_1 = 0b00

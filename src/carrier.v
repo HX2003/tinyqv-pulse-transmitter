@@ -19,7 +19,9 @@ module carrier #(
 
     always @(posedge clk) begin
         if (!sys_rst_n || !en) begin
-            carrier_counter <= duration;
+            // Setting carrier_counter to zero seems to save a tiny bit of resources
+            // but this means the first time it runs, it will a take 1 cycle longer. Not a issue at all.
+            carrier_counter <= 0;
             out <= 0;
         end else begin
             if (carrier_counter == 0) begin
