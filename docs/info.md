@@ -41,7 +41,7 @@ The transmission level and duration is described by a 2-bit **symbol**.
 | TRANSMIT_LEVEL | DURATION_SELECT |
 
 ### Modes of operation
-The pulse transmitter supports either 1bpi (default) or 2bpi mode.
+The pulse transmitter supports either 1bpe (default) or 2bpe mode.
 
 | Mode                     | Description                                                                                         |
 |--------------------------|-----------------------------------------------------------------------------------------------------|
