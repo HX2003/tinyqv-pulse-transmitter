@@ -53,7 +53,7 @@ module tqvp_hx2003_pulse_transmitter # (
     wire config_invert_output = reg_0[14];
     wire config_carrier_en = reg_0[15];
     wire config_downcount = reg_0[16];
-    wire config_use_2bps = reg_0[17];
+    wire config_use_2bpe = reg_0[17];
     wire [1:0] config_low_symbol_0 = reg_0[19:18];
     wire [1:0] config_low_symbol_1 = reg_0[21:20];
     wire [1:0] config_high_symbol_0 = reg_0[23:22];
@@ -223,11 +223,11 @@ module tqvp_hx2003_pulse_transmitter # (
     // ...
     // 224, it should take from address 7
 
-    // The auxillary mask only applies for the first 8 symbols in both 1bps and 2bps mode
+    // The auxillary mask only applies for the first 8 symbols in both 1bpe and 2bpe mode
     reg use_auxillary;
     always @(*) begin
         if(program_counter < 16) begin
-            if (config_use_2bps) begin
+            if (config_use_2bpe) begin
                 // get the nth 
                 use_auxillary = config_auxillary_mask[program_counter[3:1] +: 1];
             end else begin
@@ -256,16 +256,16 @@ module tqvp_hx2003_pulse_transmitter # (
         // ...
         symbol_data_raw = data_32[{program_counter[4:1], 1'b0} +: 2];
 
-        if (config_use_2bps) begin
+        if (config_use_2bpe) begin
             symbol_data_decoded = symbol_data_raw;
         end else begin
             // Select 1 bit from the symbol data
             if (symbol_data_raw[program_counter[0] +: 1]) begin
                 // High
-                symbol_data_decoded = sequence_done_in_1bps ? config_high_symbol_1: config_high_symbol_0;
+                symbol_data_decoded = sequence_done_in_1bpe ? config_high_symbol_1: config_high_symbol_0;
             end else begin
                 // Low
-                symbol_data_decoded = sequence_done_in_1bps ? config_low_symbol_1: config_low_symbol_0;
+                symbol_data_decoded = sequence_done_in_1bpe ? config_low_symbol_1: config_low_symbol_0;
             end
         end
 
@@ -313,18 +313,18 @@ module tqvp_hx2003_pulse_transmitter # (
     
     // The program counter is 8 bits, so between 0 to 255
     //
-    // In 2bps (2 bits per symbol) mode, program_counter is incremented by 2 each time
+    // In 2bpe (2 bit per element) mode, program_counter is incremented by 2 each time
     // can be any even value between 0 to 255 inclusive
     //
-    // In 1bps (1 bits per symbol) mode, program_counter is incremented by 1 each time,
+    // In 1bpe (1 bit per element) mode, program_counter is incremented by 1 each time,
     // however the program_counter is incremented half as often
     //
     // config_program_start_index, config_program_end_index and config_program_loopback_index
     // can be any value between 0 to 255 inclusive
 
-    // for lack of a better term. In 1bps mode, each symbol is expanded to 2 symbols.
+    // for lack of a better term. In 1bpe mode, each symbol is expanded to 2 symbols.
     // so we need to keep track of which one we are currently at
-    reg sequence_done_in_1bps;
+    reg sequence_done_in_1bpe;
 
     reg [7:0] program_counter;
     reg [(LOOP_COUNTER_WIDTH - 1):0] program_loop_counter;
@@ -339,20 +339,20 @@ module tqvp_hx2003_pulse_transmitter # (
             program_counter <= config_program_start_index;
             loop_interrupt <= 0;
             program_counter_mid_interrupt <= 0;
-            sequence_done_in_1bps <= 0;
+            sequence_done_in_1bpe <= 0;
         end else begin
             loop_interrupt <= 0; // default value, can be overridden later
             program_counter_mid_interrupt <= 0; // default value, can be overridden later
 
             if (program_counter_increment_trigger) begin
                 // Toggle this every time,
-                // In 1bps mode: it starts from 0 -> 1 -> 0 -> 1 -> 0 -> ...
-                // only when sequence_done_in_1bps is 1 when something is done, so program_counter is incremented half as often 
+                // In 1bpe mode: it starts from 0 -> 1 -> 0 -> 1 -> 0 -> ...
+                // only when sequence_done_in_1bpe is 1 when something is done, so program_counter is incremented half as often 
                 //
-                // In 2bps mode: sequence_done_in_1bps will be ignored
-                sequence_done_in_1bps <= !sequence_done_in_1bps;
+                // In 2bpe mode: sequence_done_in_1bpe will be ignored
+                sequence_done_in_1bpe <= !sequence_done_in_1bpe;
                 
-                if(config_use_2bps || sequence_done_in_1bps) begin
+                if(config_use_2bpe || sequence_done_in_1bpe) begin
                     // We only want the interrupt to trigger once every time the program counter is at 128
                     // Note, this does not mean it triggers at this interval
                     if (program_counter == 128) begin
@@ -373,13 +373,13 @@ module tqvp_hx2003_pulse_transmitter # (
                     end else begin
                         // Less utilization
                         if (config_downcount) begin
-                            if (config_use_2bps) begin
+                            if (config_use_2bpe) begin
                                 program_counter <= program_counter - 2;
                             end else begin
                                 program_counter <= program_counter - 1;
                             end
                         end else begin
-                            if (config_use_2bps) begin
+                            if (config_use_2bpe) begin
                                 program_counter <= program_counter + 2;
                             end else begin
                                 program_counter <= program_counter + 1;

@@ -18,7 +18,7 @@ Author: Han
 Peripheral index: 11
 
 ## What it does
-Pulse transmitter is a versatile peripheral that can transmit digital waveforms of various durations, with optional support for carrier modulation. Various schemes like Pulse Distance, Pulse Width, Manchester encoding, etc. can be implemented. This makes it ideal for remote control transmitter applications. However, it can also be used to drive other devices like the WS2812B addressable LED.
+Pulse transmitter is a versatile peripheral that can transmit digital waveforms of various durations, with optional support for carrier modulation. Various schemes like Pulse Distance, Pulse Width, Manchester encoding, etc. can be easily implemented. Once the program has been configured, no CPU intervention is required. This makes it ideal for remote control transmitter applications and even makes it suitable to drive other devices like the WS2812B addressable LED.
 
 ### Specifications
 - 256 bits of program data memory
@@ -31,29 +31,31 @@ Pulse transmitter is a versatile peripheral that can transmit digital waveforms 
 ### Architecture
 ![Pulse Transmitter Architecture](11_pulse_transmitter_architecture.drawio.svg)
 
-### Modes of operation
-Due to the limited amount of resources available, you can operate the pulse transmitter in 2 modes.
+### What is a symbol?
+![Pulse Transmitter Symbol](11_pulse_transmitter_symbol.drawio.svg)
 
-| Mode                     | Description                                                                                       |
-|--------------------------|---------------------------------------------------------------------------------------------------|
-| 1bps (1 bits per symbol) | Support up to 256 symbols, each 1-bit symbol is expanded to 2, 2-bit symbols via a lookup table   |
-| 2bps (2 bits per symbol) | Support up to 128 symbols                                                                         |
+The transmission level and duration is described by a 2-bit **symbol**.
 
-Each symbol is encoded as follows, in 2bps mode, you directly write this to the to the program data memory.
 | Bit 1          | Bit 0           |
 |----------------|-----------------|
 | TRANSMIT_LEVEL | DURATION_SELECT |
 
-In 1bps mode, each symbol is expanded to 2 symbols.
+### Modes of operation
+The pulse transmitter supports either 1bpi (default) or 2bpi mode.
+
+| Mode                     | Description                                                                                         |
+|--------------------------|-----------------------------------------------------------------------------------------------------|
+| 1bpe (1 bit per element) | Support up to 256 elements, each 1-bit element is expanded to 2, 2-bit symbols via a lookup table   |
+| 2bpe (2 bit per element) | Support up to 128 elements, each 2-bit element is directly mapped to a 2-bit symbol                 |
+
+As described, in 1bpe mode, each bit in program data memory is expanded to 2 symbols.
 | Value  | First symbol       |  Second symbol     |
 |--------|--------------------|--------------------|
 | 0      | low_symbol_0[1:0]  | low_symbol_1[1:0]  |
 | 1      | high_symbol_0[1:0] | high_symbol_1[1:0] |
 
-### Extra features
-You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up a certain number of times or loop forever. Moreover, instead of counting up, you can count down and send bits in reverse.
- 
-For the first 8 symbols at address 0x00, a 8 bit `auxillary_mask` is also available. Together, a 8 bit duration can be selected from one of the six lookup tables.
+### Duration
+Each 2-bit symbol has an associated duration value via one of the six lookup tables.
 
 | Auxillary Bit | Symbol Bit 1 | Symbol Bit 0 | Evaluated Duration   |
 |---------------|--------------|--------------|----------------------|
@@ -64,8 +66,21 @@ For the first 8 symbols at address 0x00, a 8 bit `auxillary_mask` is also availa
 | 1             | X            | 0            | auxillary_duration_a |
 | 1             | X            | 1            | auxillary_duration_b |
 
+To allow for more flexibility in the durations, a 8 bit `auxillary_mask` enables auxillary duration to be used.
+- In 1bpe mode, the auxillary mask is mapped to the first 8 elements (expanded to 16 symbols).
+- In 2bpe mode, the auxillary mask is mapped to the first 8 elements (8 symbols).
+
 There is also a 4 bit prescaler value each for main and auxillary.
 Combined together, total duration ticks = (duration + 2) << prescaler.
+
+### Extra features
+You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up a certain number of times or loop forever. Moreover, instead of counting up, you can count down and send bits in reverse.
+
+### Interrupts
+Interrupts can be enabled for certain events like whenever a element is transmitted, whenever the program loops, whenever the program counter reaches the half of the full capacity, or when the program completes. This may be useful in helping to refill the program data memory manually (in the absence of a FIFO) to enable continuous transmission.
+
+### Program status
+You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the completion of the program or for busy-waiting. 
 
 ## Register map
 | Address     | Name  | Access | Description      |
@@ -103,7 +118,7 @@ Only aligned 32 bit writes are supported in general. However, 8 bit write is all
 | 14    | invert_output                       |
 | 15    | carrier_en                          |
 | 16    | downcount                           |
-| 17    | use_2bps                            |
+| 17    | use_2bpe                            |
 | 19:18 | low_symbol_0                        |
 | 21:20 | low_symbol_1                        |
 | 23:22 | high_symbol_0                       |
@@ -209,7 +224,7 @@ typedef union {
         uint32_t invert_output                       : 1; // [14]
         uint32_t carrier_en                          : 1; // [15]
         uint32_t downcount                           : 1; // [16]
-        uint32_t use_2bps                            : 1; // [17]
+        uint32_t use_2bpe                            : 1; // [17]
         uint32_t low_symbol_0                        : 2; // [19:18]
         uint32_t low_symbol_1                        : 2; // [21:20]
         uint32_t high_symbol_0                       : 2; // [23:22]
