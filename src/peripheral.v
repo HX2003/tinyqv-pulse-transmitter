@@ -317,13 +317,12 @@ module tqvp_hx2003_pulse_transmitter # (
     // can be any even value between 0 to 255 inclusive
     //
     // In 1bpe (1 bit per element) mode, program_counter is incremented by 1 each time,
-    // however the program_counter is incremented half as often
+    // As each element is expanded to 2 symbols, the program_counter is incremented half as often
     //
     // config_program_start_index, config_program_end_index and config_program_loopback_index
     // can be any value between 0 to 255 inclusive
 
-    // for lack of a better term. In 1bpe mode, each symbol is expanded to 2 symbols.
-    // so we need to keep track of which one we are currently at
+    // In 1bpe mode, each element is expanded to 2 symbols we need to keep track of which symbol we are currently at
     reg sequence_done_in_1bpe;
 
     reg [7:0] program_counter;
