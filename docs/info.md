@@ -191,8 +191,8 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 #define PULSE_TRANSMITTER_ADDRESS 0x80002C0
 
 // Register struct definitions
-// Store these struct in RAM, and write to the peripheral.
-// Do not read directly from the address, it will not give back the struct.
+// Store these struct in RAM, and write to the peripheral. Do not read directly from the address, it will not give back the struct you wrote.
+// Alternatively, you can directly write to the peripheral, without making use of these structs at all.
 typedef union {
     struct {
         uint8_t clear_timer_interrupt               : 1; // [0]
