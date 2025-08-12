@@ -106,21 +106,34 @@ module tqvp_hx2003_pulse_transmitter # (
     );
     
     //reg [31:0] PROGRAM_DATA_MEM[(NUM_DATA_REG - 1):0];
+    reg [31:0] data_in_saved;
 
-    reg latch_array_write;
+    reg latch_array_write_pulse;
+    wire latch_array_write_pulse_delayed_1;
+    delay_1 latch_array_write_pulse_delayer(
+        .clk(clk),
+        .sys_rst_n(rst_n),
+        .sig_in(latch_array_write_pulse),
+        .sig_delayed_1_out(latch_array_write_pulse_delayed_1)
+    );
+
+    // Program data symbol 32 bit write
+    // map the address to our PROGRAM_DATA_MEM
+    // 0b100000 -> PROGRAM_DATA_MEM index 0
+    // 0b100100 -> PROGRAM_DATA_MEM index 1
+    // 0b101000 -> PROGRAM_DATA_MEM index 2
+    //PROGRAM_DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1 + 2):2]] <= data_in[31:0];
     latch_array my_latch_array(
         .read_address(program_counter[7:5]),
         .data_out(data_32),
-        .write(latch_array_write),
+        .write(latch_array_write_pulse_delayed_1),
         .write_address(address[(DATA_REG_ADDR_NUM_BITS - 1 + 2):2]),
         .data_in(data_in_saved)
     );
-
-    reg [31:0] data_in_saved;
     
     // Writing of registers / program data symbol
     // Note: Unaligned accesses may NOT be checked
-    // Note: Unsupported access sizes may be not checked
+    // Note: Unsupported access sizes may NOT be checked
     always @(posedge clk) begin
         if (!rst_n) begin
             // Reset the registers to its defaults
@@ -130,12 +143,12 @@ module tqvp_hx2003_pulse_transmitter # (
             reg_2 <= 0;
             reg_3 <= 0;
             reg_4 <= 0;
-            latch_array_write <= 0;
+            latch_array_write_pulse <= 1'b0;
         end else begin
             // Defaults (they can be overriden below)
             `interrupt_status_register <= `interrupt_status_register | interrupt_event_flag;
             `program_status_register <= `program_status_register & ~terminate_program;
-            latch_array_write <= 0;
+            latch_array_write_pulse <= 1'b0;
 
             if (address[5] == 1'b0) begin
                 // Support 32 bit aligned write at address 0, 4, 8, 12, 16 for reg_0, reg_1, reg_2, reg_3, reg_4
@@ -173,14 +186,9 @@ module tqvp_hx2003_pulse_transmitter # (
                 end
             end else begin
                 if (data_write_n == 2'b10) begin
+                    // Save the 32 bit write data into flop, we will use that later
                     data_in_saved <= data_in;
-                    latch_array_write <= 1;
-                    // Program data symbol 32 bit write
-                    // map the address to our PROGRAM_DATA_MEM
-                    // 0b100000 -> PROGRAM_DATA_MEM index 0
-                    // 0b100100 -> PROGRAM_DATA_MEM index 1
-                    // 0b101000 -> PROGRAM_DATA_MEM index 2
-                    //PROGRAM_DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1 + 2):2]] <= data_in[31:0];
+                    latch_array_write_pulse <= 1'b1;
                 end
             end
         end
