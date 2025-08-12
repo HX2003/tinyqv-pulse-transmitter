@@ -40,7 +40,7 @@ module latch_word (
     generate
         for (i = 0; i < 32; i++) begin
             /* verilator lint_off PINMISSING */
-            sky130_fd_sc_hd__dlxtp_1 p_latch_bit(.GATE(write_en_safe), .D(data_in[i]), .Q(data_out[i]));
+            sky130_fd_sc_hd__dlxtn_1 n_latch_bit(.GATE_N(write_en_safe), .D(data_in[i]), .Q(data_out[i]));
         end
     endgenerate
 `endif
