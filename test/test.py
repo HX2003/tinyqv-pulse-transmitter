@@ -353,7 +353,7 @@ class Device:
         cocotb.start_soon(self.start_program()) #await self.start_program()
 
         # Wait until valid output goes high
-        while(self.dut.uo_out[3].value == 0):
+        while(self.dut.uo_out[2].value == 0):
             await ClockCycles(self.dut.clk, 1)
 
         #await RisingEdge(self.dut.test_harness.user_peripheral.valid_output)

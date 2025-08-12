@@ -19,6 +19,8 @@ project:
   source_files:
     - "delay_1.v"
     - "delay_2.v"
+    - "latch_word.v"
+    - "latch_array.v"
     - "simple_falling_edge_detector.v"
     - "simple_rising_edge_detector.v"
     - "countdown_timer.v"

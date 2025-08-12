@@ -105,8 +105,19 @@ module tqvp_hx2003_pulse_transmitter # (
         .pulse_out(start_pulse)
     );
     
-    reg [31:0] PROGRAM_DATA_MEM[(NUM_DATA_REG - 1):0];
+    //reg [31:0] PROGRAM_DATA_MEM[(NUM_DATA_REG - 1):0];
 
+    reg latch_array_write;
+    latch_array my_latch_array(
+        .read_address(program_counter[7:5]),
+        .data_out(data_32),
+        .write(latch_array_write),
+        .write_address(address[(DATA_REG_ADDR_NUM_BITS - 1 + 2):2]),
+        .data_in(data_in_saved)
+    );
+
+    reg [31:0] data_in_saved;
+    
     // Writing of registers / program data symbol
     // Note: Unaligned accesses may NOT be checked
     // Note: Unsupported access sizes may be not checked
@@ -119,10 +130,12 @@ module tqvp_hx2003_pulse_transmitter # (
             reg_2 <= 0;
             reg_3 <= 0;
             reg_4 <= 0;
+            latch_array_write <= 0;
         end else begin
             // Defaults (they can be overriden below)
             `interrupt_status_register <= `interrupt_status_register | interrupt_event_flag;
             `program_status_register <= `program_status_register & ~terminate_program;
+            latch_array_write <= 0;
 
             if (address[5] == 1'b0) begin
                 // Support 32 bit aligned write at address 0, 4, 8, 12, 16 for reg_0, reg_1, reg_2, reg_3, reg_4
@@ -160,35 +173,18 @@ module tqvp_hx2003_pulse_transmitter # (
                 end
             end else begin
                 if (data_write_n == 2'b10) begin
+                    data_in_saved <= data_in;
+                    latch_array_write <= 1;
                     // Program data symbol 32 bit write
                     // map the address to our PROGRAM_DATA_MEM
                     // 0b100000 -> PROGRAM_DATA_MEM index 0
                     // 0b100100 -> PROGRAM_DATA_MEM index 1
                     // 0b101000 -> PROGRAM_DATA_MEM index 2
-                    PROGRAM_DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1 + 2):2]] <= data_in[31:0];
+                    //PROGRAM_DATA_MEM[address[(DATA_REG_ADDR_NUM_BITS - 1 + 2):2]] <= data_in[31:0];
                 end
             end
         end
     end
-
-    // Apply optional carrier
-    wire modulated_output = config_carrier_en ? (saved_transmit_level && carrier_out): saved_transmit_level;
-
-    // Insert idle level when not transmitting
-    wire active_or_idle_output = (valid_output) ? modulated_output : config_idle_level;
-    
-    // Apply optional inversion
-    wire final_output = active_or_idle_output ^ config_invert_output;
-    
-    wire carrier_out;
-    
-    carrier #(.TIMER_WIDTH(CARRIER_TIMER_WIDTH)) carrier_timer(
-        .clk(clk),
-        .sys_rst_n(rst_n),           
-        .en(`program_status_register && !start_pulse && !start_pulse_delayed_1),
-        .duration(config_carrier_duration),
-        .out(carrier_out)
-    );
 
     wire start_pulse_delayed_1;
     wire start_pulse_delayed_2;
@@ -240,7 +236,8 @@ module tqvp_hx2003_pulse_transmitter # (
         end
     end
 
-    wire [31:0] data_32 = PROGRAM_DATA_MEM[program_counter[7:5]];
+    wire [31:0] data_32;
+    //wire [31:0] data_32 = PROGRAM_DATA_MEM[program_counter[7:5]];
     reg [1:0] symbol_data_raw;
 
     reg [1:0] symbol_data_decoded;
@@ -289,14 +286,18 @@ module tqvp_hx2003_pulse_transmitter # (
         end
     end
     
+    reg saved_transmit_level_other;
+
     reg saved_transmit_level;
     always @(posedge clk) begin
         if (!rst_n) begin
             saved_transmit_level <= 0;
+            saved_transmit_level_other <= 0;
         end else begin
             if(timer_pulse_out_with_initial) begin
                 // save the transmit_level
                 saved_transmit_level <= transmit_level;
+                saved_transmit_level_other <= sequence_done_in_1bpe;
             end
         end
     end
@@ -391,11 +392,32 @@ module tqvp_hx2003_pulse_transmitter # (
     end
 
     wire terminate_program = timer_pulse_out_with_initial && program_end_of_file;
+    
+    // Output section
+
+    // Apply optional carrier
+    wire modulated_output = config_carrier_en ? (saved_transmit_level && carrier_out): saved_transmit_level;
+
+    // Insert idle level when not transmitting
+    wire active_or_idle_output = (valid_output) ? modulated_output : config_idle_level;
+    
+    // Apply optional inversion
+    wire final_output = active_or_idle_output ^ config_invert_output;
+    
+    wire carrier_out;
+    
+    carrier #(.TIMER_WIDTH(CARRIER_TIMER_WIDTH)) carrier_timer(
+        .clk(clk),
+        .sys_rst_n(rst_n),           
+        .en(`program_status_register && !start_pulse && !start_pulse_delayed_1),
+        .duration(config_carrier_duration),
+        .out(carrier_out)
+    );
 
     // Pin outputs
-    assign uo_out[1:0] = 0;
-    assign uo_out[2] = carrier_out;
-    assign uo_out[3] = valid_output;
+    assign uo_out[1:0] = {carrier_out, carrier_out};
+    assign uo_out[2] = valid_output;
+    assign uo_out[3] = ((valid_output) ? saved_transmit_level_other : config_idle_level) ^ config_invert_output;
     assign uo_out[7:4] = {final_output, final_output, final_output, final_output};
   
     // Read address doesn't matter

@@ -47,7 +47,7 @@ module countdown_timer #(
 
     reg [(PRESCALER_WIDTH):0] prescaler_counter;
     wire [PRESCALER_WIDTH:0] prescaler_start_count = {1'b0, {{(PRESCALER_WIDTH - 1){1'b0}}, 1'b1} << prescaler} - 2;
-    
+
     reg [TIMER_WIDTH:0] counter; // extra bit for rollover
     wire [TIMER_WIDTH:0] start_count = {1'b0, duration};  // extra bit for rollover
 
