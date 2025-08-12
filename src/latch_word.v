@@ -10,7 +10,7 @@ module latch_word (
     output wire [31:0] data_out
 );
 
-`ifdef COCOTB_SIM
+`ifdef PURE_RTL
     reg [31:0] data;
 
     wire write_en_safe = write_en_a & write_en_b;
@@ -25,14 +25,16 @@ module latch_word (
     assign data_out = data;
 
 `else
-    wire [31:0] data;
-    
     wire write_en_safe;
     // Latches are sensitive to glitches on its gate pin
     // For example, the write en may glitch for a moment when a comparision like write_address == j is being done
     
-    // Specify that a AND gate be used to minimize this possibility
-    (* keep *) sky130_fd_sc_hd__and2_1 safety_gate( .A(write_en_a), .B(write_en_b), .X(write_en_safe) );
+    // Specify that a AND gate be used so that a write a only triggered when
+    // both write_en_a and write_en_b are high
+    // the _4 suffix means a stronger drive strength since we are driving so many gates
+
+    /* verilator lint_off PINMISSING */
+    (* keep *) sky130_fd_sc_hd__and2_4 safety_gate( .A(write_en_a), .B(write_en_b), .X(write_en_safe));
 
     genvar i;
     generate
