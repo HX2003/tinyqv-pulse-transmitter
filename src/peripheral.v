@@ -9,7 +9,7 @@
 // For example tqvp_yourname_spi for an SPI peripheral.
 // Then edit tt_wrapper.v line 41 and change tqvp_example to your chosen module name.
 module tqvp_hx2003_pulse_transmitter # (
-    CARRIER_TIMER_WIDTH = 12, // Do not change these parameters, as the register mapping will not be updated
+    CARRIER_TIMER_WIDTH = 16, // Do not change these parameters, as the register mapping will not be updated
     LOOP_COUNTER_WIDTH = 8    // Do not change these parameters, as the register mapping will not be updated
 ) ( 
     input         clk,          // Clock - the TinyQV project clock is normally set to 64MHz.
@@ -82,8 +82,8 @@ module tqvp_hx2003_pulse_transmitter # (
     wire [3:0] config_auxillary_prescaler = reg_3[27:24];
     wire [3:0] config_main_prescaler = reg_3[31:28];
 
-    reg [11:0] reg_4;
-    wire [11:0] config_carrier_duration = reg_4[11:0];
+    reg [15:0] reg_4;
+    wire [15:0] config_carrier_duration = reg_4[15:0];
 
     // Interrupt
     assign user_interrupt = `interrupt_status_register > 0;
@@ -178,7 +178,7 @@ module tqvp_hx2003_pulse_transmitter # (
                         3'd1: reg_1 <= data_in[31:0];
                         3'd2: reg_2 <= data_in[31:0];
                         3'd3: reg_3 <= data_in[31:0];
-                        3'd4: reg_4 <= data_in[11:0];
+                        3'd4: reg_4 <= data_in[15:0];
                         default: begin
                             // Do nothing
                         end
