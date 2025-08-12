@@ -15,7 +15,7 @@
 module latch_array (
     input wire [2:0] read_address,
     output wire [31:0] data_out,
-    input wire write, // write must be high for at least 1 clock cycle, 1 clock cycle after the write_address is stable
+    input wire write, // write must be high for at least 1 clock cycle, at least 1 clock cycle after the write_address is stable
     input wire [2:0] write_address,
     input wire [31:0] data_in
 );

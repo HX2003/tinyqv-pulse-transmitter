@@ -54,11 +54,7 @@ module tqvp_hx2003_pulse_transmitter # (
     wire config_carrier_en = reg_0[15];
     wire config_downcount = reg_0[16];
     wire config_use_2bpe = reg_0[17];
-    wire [1:0] config_low_symbol_0 = reg_0[19:18];
-    wire [1:0] config_low_symbol_1 = reg_0[21:20];
-    wire [1:0] config_high_symbol_0 = reg_0[23:22];
-    wire [1:0] config_high_symbol_1 = reg_0[25:24];
-    wire _unused_reg_0_b = &{reg_0[31:26], 1'b0};
+    wire _unused_reg_0_b = &{reg_0[31:18], 1'b0};
 
 
     reg [31:0] reg_1;
@@ -82,8 +78,21 @@ module tqvp_hx2003_pulse_transmitter # (
     wire [3:0] config_auxillary_prescaler = reg_3[27:24];
     wire [3:0] config_main_prescaler = reg_3[31:28];
 
-    reg [15:0] reg_4;
+    reg [31:0] reg_4;
     wire [15:0] config_carrier_duration = reg_4[15:0];
+    wire _unused_reg_4_a = &{reg_4[31:16], 1'b0};
+
+    reg [31:0] reg_5;
+    wire [1:0] config_main_low_symbol_0 = reg_5[1:0];
+    wire [1:0] config_main_low_symbol_1 = reg_5[3:2];
+    wire [1:0] config_main_high_symbol_0 = reg_5[5:4];
+    wire [1:0] config_main_high_symbol_1 = reg_5[7:6];
+    wire [1:0] config_auxillary_low_symbol_0 = reg_5[9:8];
+    wire [1:0] config_auxillary_low_symbol_1 = reg_5[11:10];
+    wire [1:0] config_auxillary_high_symbol_0 = reg_5[13:12];
+    wire [1:0] config_auxillary_high_symbol_1 = reg_5[15:14];
+    wire _unused_reg_5_a = &{reg_5[31:16], 1'b0};
+
 
     // Interrupt
     assign user_interrupt = `interrupt_status_register > 0;
@@ -143,6 +152,7 @@ module tqvp_hx2003_pulse_transmitter # (
             reg_2 <= 0;
             reg_3 <= 0;
             reg_4 <= 0;
+            reg_5 <= 0;
             latch_array_write_pulse <= 1'b0;
         end else begin
             // Defaults (they can be overriden below)
@@ -178,7 +188,8 @@ module tqvp_hx2003_pulse_transmitter # (
                         3'd1: reg_1 <= data_in[31:0];
                         3'd2: reg_2 <= data_in[31:0];
                         3'd3: reg_3 <= data_in[31:0];
-                        3'd4: reg_4 <= data_in[15:0];
+                        3'd4: reg_4 <= data_in[31:0];
+                        3'd5: reg_5 <= data_in[31:0];
                         default: begin
                             // Do nothing
                         end
@@ -267,10 +278,18 @@ module tqvp_hx2003_pulse_transmitter # (
             // Select 1 bit from the symbol data
             if (symbol_data_raw[program_counter[0] +: 1]) begin
                 // High
-                symbol_data_decoded = sequence_done_in_1bpe ? config_high_symbol_1: config_high_symbol_0;
+                if (use_auxillary) begin 
+                    symbol_data_decoded = sequence_done_in_1bpe ? config_auxillary_high_symbol_1: config_auxillary_high_symbol_0;
+                end else begin
+                    symbol_data_decoded = sequence_done_in_1bpe ? config_main_high_symbol_1: config_main_high_symbol_0;
+                end
             end else begin
                 // Low
-                symbol_data_decoded = sequence_done_in_1bpe ? config_low_symbol_1: config_low_symbol_0;
+                if (use_auxillary) begin 
+                    symbol_data_decoded = sequence_done_in_1bpe ? config_auxillary_low_symbol_1: config_auxillary_low_symbol_0;
+                end else begin
+                    symbol_data_decoded = sequence_done_in_1bpe ? config_main_low_symbol_1: config_main_low_symbol_0;
+                end
             end
         end
 
