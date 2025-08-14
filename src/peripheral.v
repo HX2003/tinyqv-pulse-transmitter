@@ -400,8 +400,8 @@ module tqvp_hx2003_pulse_transmitter (
     // Read address doesn't matter
     assign data_out[4:0] = reg_0[4:0];
     assign data_out[7:5] = 3'b0;
-    assign data_out[15:8] = program_loop_counter;
-    assign data_out[23:16] = program_counter;
+    assign data_out[15:8] = program_counter;
+    assign data_out[23:16] = program_loop_counter;
     assign data_out[31:24] = 8'b0;
 
     // All reads complete in 1 clock

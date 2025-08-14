@@ -168,8 +168,7 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 | 3     | program_counter_mid_interrupt_status |
 | 4     | program_status                       |
 | 7:5   | *unused* (value of 0)                |
-| 14:8  | program_counter                      |
-| 15    | *unused* (value of 0)                |
+| 15:8  | program_counter                      |
 | 23:16 | program_loop_counter                 |
 | 31:24 | *unused* (value of 0)                |
 
@@ -442,7 +441,7 @@ int main() {
     // For 350 ns, we want 22 ticks.
     // For 850 ns, we want 54 ticks.
 
-    // These numbers are for set for 20 MHz clock (not 64 MHz) 
+    // These numbers are for set for 21 MHz clock (not 64 MHz) 
     pulse_transmitter_write_reg_2_t reg_2 = {0};
     reg_2.main_low_duration_a = 16;  // Approximately 850 ns
     reg_2.main_low_duration_b = 5;   // Approximately 350 ns
