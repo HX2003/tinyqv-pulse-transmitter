@@ -8,10 +8,7 @@
 // Change the name of this module to something that reflects its functionality and includes your name for uniqueness
 // For example tqvp_yourname_spi for an SPI peripheral.
 // Then edit tt_wrapper.v line 41 and change tqvp_example to your chosen module name.
-module tqvp_hx2003_pulse_transmitter # (
-    CARRIER_TIMER_WIDTH = 12, // Do not change these parameters, as the register mapping will not be updated
-    LOOP_COUNTER_WIDTH = 8    // Do not change these parameters, as the register mapping will not be updated
-) ( 
+module tqvp_hx2003_pulse_transmitter ( 
     input         clk,          // Clock - the TinyQV project clock is normally set to 64MHz.
     input         rst_n,        // Reset_n - low to reset.
 
@@ -35,7 +32,9 @@ module tqvp_hx2003_pulse_transmitter # (
 );
 
     // Local Fixed parameters (do not change)
-    localparam NUM_DATA_REG = 8; // NUM_DATA_REG must be power of 2 as we depend on the program to rollover, see rollover / wrapping test
+    localparam CARRIER_TIMER_WIDTH = 12; // Do not change these parameters, as the register mapping will not be updated
+    localparam LOOP_COUNTER_WIDTH = 8;   // Do not change these parameters, as the register mapping will not be updated
+    localparam NUM_DATA_REG = 8;         // Do not change these parameters, NUM_DATA_REG must be power of 2 as we depend on the program to rollover, see rollover / wrapping test
 
     // Calculated parameters
     localparam DATA_REG_ADDR_NUM_BITS = $clog2(NUM_DATA_REG);
