@@ -103,14 +103,14 @@ Only aligned 32 bit writes are supported in general. However, 8 bit write is all
 | Bits  | Name                                |
 |-------|-------------------------------------|
 | 0     | clear_timer_interrupt               |
-| 1     | clear_loop_interrupt                |
+| 1     | clear_program_loop_interrupt        |
 | 2     | clear_program_end_interrupt         |
 | 3     | clear_program_counter_mid_interrupt |
 | 4     | start_program                       |
 | 5     | stop_program                        |
 | 7:6   | *unused*                            |
 | 8     | timer_interrupt_en                  |
-| 9     | loop_interrupt_en                   |
+| 9     | program_loop_interrupt_en           |
 | 10    | program_end_interrupt_en            |
 | 11    | program_counter_mid_interrupt_en    |
 | 12    | loop_forever                        |
@@ -163,7 +163,7 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 | Bits  | Name                                 |
 |-------|--------------------------------------|
 | 0     | timer_interrupt_status               |
-| 1     | loop_interrupt_status                |
+| 1     | program_loop_interrupt_status        |
 | 2     | program_end_interrupt_status         |
 | 3     | program_counter_mid_interrupt_status |
 | 4     | program_status                       |
@@ -195,7 +195,7 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 typedef union {
     struct {
         uint8_t clear_timer_interrupt               : 1; // [0]
-        uint8_t clear_loop_interrupt                : 1; // [1]
+        uint8_t clear_program_loop_interrupt        : 1; // [1]
         uint8_t clear_program_end_interrupt         : 1; // [2]
         uint8_t clear_program_counter_mid_interrupt : 1; // [3]
         uint8_t start_program                       : 1; // [4]
@@ -208,14 +208,14 @@ typedef union {
 typedef union {
     struct {
         uint32_t clear_timer_interrupt               : 1; // [0]
-        uint32_t clear_loop_interrupt                : 1; // [1]
+        uint32_t clear_program_loop_interrupt        : 1; // [1]
         uint32_t clear_program_end_interrupt         : 1; // [2]
         uint32_t clear_program_counter_mid_interrupt : 1; // [3]
         uint32_t start_program                       : 1; // [4]
         uint32_t stop_program                        : 1; // [5]
         uint32_t _unused_reg_0_a                     : 2; // [7:6]
         uint32_t timer_interrupt_en                  : 1; // [8]
-        uint32_t loop_interrupt_en                   : 1; // [9]
+        uint32_t program_loop_interrupt_en           : 1; // [9]
         uint32_t program_end_interrupt_en            : 1; // [10]
         uint32_t program_counter_mid_interrupt_en    : 1; // [11]
         uint32_t loop_forever                        : 1; // [12]
@@ -275,7 +275,7 @@ typedef union {
 typedef union {
     struct {
         uint8_t timer_interrupt_status               : 1; // [0]
-        uint8_t loop_interrupt                       : 1; // [1]
+        uint8_t program_loop_interrupt               : 1; // [1]
         uint8_t program_end_interrupt                : 1; // [2]
         uint8_t program_counter_mid_interrupt_status : 1; // [3]
         uint8_t program_status                       : 1; // [4]
@@ -287,7 +287,7 @@ typedef union {
 typedef union {
     struct {
         uint32_t timer_interrupt_status               : 1; // [0]
-        uint32_t loop_interrupt                       : 1; // [1]
+        uint32_t program_loop_interrupt               : 1; // [1]
         uint32_t program_end_interrupt                : 1; // [2]
         uint32_t program_counter_mid_interrupt_status : 1; // [3]
         uint32_t program_status                       : 1; // [4]

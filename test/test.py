@@ -48,7 +48,7 @@ class Device:
     # only sets the member variables, does not actually write to the device
     def reset_config(self):
         self._clear_timer_interrupt = 0
-        self._clear_loop_interrupt = 0
+        self._clear_program_loop_interrupt = 0
         self._clear_program_end_interrupt = 0
         self._clear_program_counter_mid_interrupt = 0
         self._start_program = 0
@@ -98,7 +98,7 @@ class Device:
     
     def _gen_reg_0(self):
         return self._clear_timer_interrupt \
-            | (self._clear_loop_interrupt << 1) \
+            | (self._clear_program_loop_interrupt << 1) \
             | (self._clear_program_end_interrupt << 2) \
             | (self._clear_program_counter_mid_interrupt << 3) \
             | (self._start_program << 4) \
@@ -157,9 +157,9 @@ class Device:
         self._stop_program = 0
 
     """ Clear the desired interrupts using 8 bit write """
-    async def clear_interrupts(self, clear_timer_interrupt = 1, clear_loop_interrupt = 1, clear_program_end_interrupt=1, clear_program_counter_mid_interrupt=1):
+    async def clear_interrupts(self, clear_timer_interrupt = 1, clear_program_loop_interrupt = 1, clear_program_end_interrupt=1, clear_program_counter_mid_interrupt=1):
         self._clear_timer_interrupt = clear_timer_interrupt
-        self._clear_loop_interrupt = clear_loop_interrupt
+        self._clear_program_loop_interrupt = clear_program_loop_interrupt
         self._clear_program_end_interrupt = clear_program_end_interrupt
         self._clear_program_counter_mid_interrupt = clear_program_counter_mid_interrupt
         self._start_program = 0
@@ -168,16 +168,16 @@ class Device:
         await self.write8_reg_0()
 
         self._clear_timer_interrupt = 0
-        self._clear_loop_interrupt = 0
+        self._clear_program_loop_interrupt = 0
         self._clear_program_end_interrupt = 0
         self._clear_program_counter_mid_interrupt = 0
         self._start_program = 0
         self._stop_program = 0
 
     """ Clear the desired interrupts using 8 bit write """
-    async def clear_interrupts_using32(self, clear_timer_interrupt = 1, clear_loop_interrupt = 1, clear_program_end_interrupt=1, clear_program_counter_mid_interrupt=1):
+    async def clear_interrupts_using32(self, clear_timer_interrupt = 1, clear_program_loop_interrupt = 1, clear_program_end_interrupt=1, clear_program_counter_mid_interrupt=1):
         self._clear_timer_interrupt = clear_timer_interrupt
-        self._clear_loop_interrupt = clear_loop_interrupt
+        self._clear_program_loop_interrupt = clear_program_loop_interrupt
         self._clear_program_end_interrupt = clear_program_end_interrupt
         self._clear_program_counter_mid_interrupt = clear_program_counter_mid_interrupt
         self._start_program = 0
@@ -186,7 +186,7 @@ class Device:
         await self.write32_reg_0()
 
         self._clear_timer_interrupt = 0
-        self._clear_loop_interrupt = 0
+        self._clear_program_loop_interrupt = 0
         self._clear_program_end_interrupt = 0
         self._clear_program_counter_mid_interrupt = 0
         self._start_program = 0
@@ -1691,7 +1691,7 @@ async def interrupt_2bpe_test2(dut):
 
     await device.clear_interrupts(
         clear_timer_interrupt = 1,
-        clear_loop_interrupt = 1,
+        clear_program_loop_interrupt = 1,
         clear_program_end_interrupt = 0,  # Means no effect (don't clear program end interrupt)
         clear_program_counter_mid_interrupt = 1
     )
@@ -1700,7 +1700,7 @@ async def interrupt_2bpe_test2(dut):
 
     await device.clear_interrupts(
         clear_timer_interrupt = 0,
-        clear_loop_interrupt = 0,
+        clear_program_loop_interrupt = 0,
         clear_program_end_interrupt = 1,
         clear_program_counter_mid_interrupt = 0
     )
@@ -1730,7 +1730,7 @@ async def interrupt_2bpe_test3(dut):
 
     await device.clear_interrupts_using32(
         clear_timer_interrupt = 1,
-        clear_loop_interrupt = 1,
+        clear_program_loop_interrupt = 1,
         clear_program_end_interrupt = 0, # Means no effect (don't clear timer interrupt)
         clear_program_counter_mid_interrupt = 1
     )
@@ -1740,7 +1740,7 @@ async def interrupt_2bpe_test3(dut):
     
     await device.clear_interrupts_using32(
         clear_timer_interrupt = 0,
-        clear_loop_interrupt = 0,
+        clear_program_loop_interrupt = 0,
         clear_program_end_interrupt = 1,
         clear_program_counter_mid_interrupt = 0
     )
@@ -1778,7 +1778,7 @@ async def interrupt_2bpe_test4(dut):
 
     await device.clear_interrupts_using32(
         clear_timer_interrupt = 0,
-        clear_loop_interrupt = 1,
+        clear_program_loop_interrupt = 1,
         clear_program_end_interrupt = 0,
         clear_program_counter_mid_interrupt = 0
     )
@@ -1812,7 +1812,7 @@ async def interrupt_2bpe_test5(dut):
 
     await device.clear_interrupts(
         clear_timer_interrupt = 1,
-        clear_loop_interrupt = 1,
+        clear_program_loop_interrupt = 1,
         clear_program_end_interrupt = 1,
         clear_program_counter_mid_interrupt = 1
     )
@@ -1859,7 +1859,7 @@ async def interrupt_2bpe_test6(dut):
 
     await device.clear_interrupts_using32(
         clear_timer_interrupt = 0,
-        clear_loop_interrupt = 0,
+        clear_program_loop_interrupt = 0,
         clear_program_end_interrupt = 0,
         clear_program_counter_mid_interrupt = 1
     )
