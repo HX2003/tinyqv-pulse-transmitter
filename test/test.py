@@ -353,7 +353,7 @@ class Device:
         cocotb.start_soon(self.start_program()) #await self.start_program()
 
         # Wait until valid output goes high
-        while(self.dut.uo_out[3].value == 0):
+        while(self.dut.uo_out[1].value == 0):
             await ClockCycles(self.dut.clk, 1)
 
         #await RisingEdge(self.dut.test_harness.user_peripheral.valid_output)
@@ -385,7 +385,7 @@ class Device:
                 expected_level = waveform[internal_program_counter >> 1][1]
 
                 for i in range(duration): # check every cycle for thoroughness
-                    assert self.dut.uo_out[4].value == expected_level
+                    assert self.dut.uo_out[5].value == expected_level
                     await ClockCycles(self.dut.clk, 1) 
             else:
                 assert internal_program_counter < waveform_len # make sure don't access out of bounds
@@ -393,7 +393,7 @@ class Device:
                 expected_level = waveform[internal_program_counter * 2][1]
 
                 for i in range(duration): # check every cycle for thoroughness
-                    assert self.dut.uo_out[4].value == expected_level
+                    assert self.dut.uo_out[5].value == expected_level
                     await ClockCycles(self.dut.clk, 1) 
 
                 assert internal_program_counter < waveform_len # make sure don't access out of bounds
@@ -401,7 +401,7 @@ class Device:
                 expected_level = waveform[internal_program_counter * 2 + 1][1]
 
                 for i in range(duration): # check every cycle for thoroughness
-                    assert self.dut.uo_out[4].value == expected_level
+                    assert self.dut.uo_out[5].value == expected_level
                     await ClockCycles(self.dut.clk, 1) 
                     
             if(internal_program_counter == self.config_program_end_index):
@@ -437,13 +437,13 @@ class Device:
                 total_duration += duration
 
             for i in range(total_duration):
-                assert self.dut.uo_out[4].value == (self.config_idle_level ^ self.config_invert_output)
+                assert self.dut.uo_out[5].value == (self.config_idle_level ^ self.config_invert_output)
                 await ClockCycles(self.dut.clk, 1)
 
 
 #  Simulate Pulse Distance Encoding
 @cocotb.test(timeout_time=2, timeout_unit="ms")
-async def encoded_12bpe_test_test1(dut):
+async def encoded_1bpe_test1(dut):
     device = Device(dut)
     await device.init()
 
@@ -473,7 +473,7 @@ async def encoded_12bpe_test_test1(dut):
 
 # Simulate Pulse Distance Encoding
 @cocotb.test(timeout_time=2, timeout_unit="ms")
-async def encoded_12bpe_test_test2(dut):
+async def encoded_1bpe_test2(dut):
     device = Device(dut)
     await device.init()
 

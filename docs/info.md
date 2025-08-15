@@ -23,9 +23,9 @@ Pulse transmitter is a versatile peripheral that can transmit digital waveforms 
 ### Specifications
 - 256 bits of program data memory
 - 24 bit duration counter (8 bit with prescaler)
-- 12 bit carrier timer
+- 11 bit carrier timer
 - 8 + 1 bit program counter
-- 8 bit loop counter
+- 8 bit program loop counter
 - 4 configurable interrupts (not shown in the architecture diagram)
 
 ### Architecture
@@ -73,7 +73,10 @@ To allow for more flexibility in the durations, a 8 bit `auxillary_mask` enables
 There is also a 4 bit prescaler value each for main and auxillary.
 Combined together, total duration ticks = (duration + 2) << prescaler.
 
-### Extra features
+### Carrier
+The carrier timer is a 11 bit timer that generates a fixed 50% duty cycle square wave. Assuming a clock of 64 MHz, the minimum achievable frequency is approximately 15.6 KHz, while the maximum is 32 MHz. The total duration ticks of a full cycle (high and low) is 2 * (carrier_duration + 1). Note that the carrier output is initially low at the start of the program, and is active when the program is running on a seperate output pin even when `carrier_en` is disabled.
+
+### Other extra features
 You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up a certain number of times or loop forever. Moreover, instead of counting up, you can count down and send bits in reverse.
 
 ### Interrupts
@@ -155,7 +158,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 ### REG_4
 | Bits  | Name                                |
 |-------|-------------------------------------|
-| 11:0  | carrier_duration (12 bits)          |
+| 10:0  | carrier_duration (11 bits)          |
 | 31:12 | *unused*                            |
 
 ## Reading
@@ -175,14 +178,16 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 ## Pin mappings
 | Pin       | Value          | Description                             |
 |-----------|----------------|-----------------------------------------|
-| uo_out[0] | 0              |                                         |
-| uo_out[1] | 0              |                                         |
-| uo_out[2] | carrier_out    | Square wave from carrier                |
-| uo_out[3] | valid_output   | High when output is active              |
-| uo_out[4] | final_output   | Pulse transmitter output (duplicated)   |
-| uo_out[5] | final_output   | Pulse transmitter output (duplicated)   |
-| uo_out[6] | final_output   | Pulse transmitter output (duplicated)   |
-| uo_out[7] | final_output   | Pulse transmitter output (duplicated)   |
+| uo_out[0] | valid_output   | High when output is active              |
+| uo_out[1] | valid_output   | High when output is active              |
+| uo_out[2] | interrupt      | High when any interrupt is asserted     |
+| uo_out[3] | carrier_out    | Square wave from carrier                |
+| uo_out[4] | carrier_out    | Square wave from carrier                |
+| uo_out[5] | final_output   | Pulse transmitter output                |
+| uo_out[6] | final_output   | Pulse transmitter output                |
+| uo_out[7] | final_output   | Pulse transmitter output                |
+
+Note, the pins are duplicated to allow for some flexibility.
 
 ## How to test
 ### Use with TinyQV C SDK
@@ -266,8 +271,8 @@ typedef union {
 
 typedef union {
     struct {
-        uint32_t carrier_duration       : 12;  // [11:0]
-        uint32_t _unused_reg_4_a        : 20;  // [31:12]
+        uint32_t carrier_duration       : 11;  // [10:0]
+        uint32_t _unused_reg_4_a        : 21;  // [31:11]
     };
     uint32_t val;
 } pulse_transmitter_write_reg_4_t;

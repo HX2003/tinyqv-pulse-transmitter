@@ -32,7 +32,7 @@ module tqvp_hx2003_pulse_transmitter (
 );
 
     // Local Fixed parameters (do not change)
-    localparam CARRIER_TIMER_WIDTH = 12; // Do not change these parameters, as the register mapping will not be updated
+    localparam CARRIER_TIMER_WIDTH = 11; // Do not change these parameters, as the register mapping will not be updated
     localparam LOOP_COUNTER_WIDTH = 8;   // Do not change these parameters, as the register mapping will not be updated
     localparam NUM_DATA_REG = 8;         // Do not change these parameters, NUM_DATA_REG must be power of 2 as we depend on the program to rollover, see rollover / wrapping test
 
@@ -104,6 +104,16 @@ module tqvp_hx2003_pulse_transmitter (
         .pulse_out(start_pulse)
     );
     
+    wire start_pulse_delayed_1;
+    wire start_pulse_delayed_2;
+    delay_2 start_pulse_delayer(
+        .clk(clk),
+        .sys_rst_n(rst_n),
+        .sig_in(start_pulse),
+        .sig_delayed_1_out(start_pulse_delayed_1),
+        .sig_delayed_2_out(start_pulse_delayed_2)
+    );
+    
     reg [31:0] PROGRAM_DATA_MEM[(NUM_DATA_REG - 1):0];
 
     // Writing of registers / program data symbol
@@ -169,35 +179,6 @@ module tqvp_hx2003_pulse_transmitter (
             end
         end
     end
-
-    // Apply optional carrier
-    wire modulated_output = config_carrier_en ? (saved_transmit_level && carrier_out): saved_transmit_level;
-
-    // Insert idle level when not transmitting
-    wire active_or_idle_output = (valid_output) ? modulated_output : config_idle_level;
-    
-    // Apply optional inversion
-    wire final_output = active_or_idle_output ^ config_invert_output;
-    
-    wire carrier_out;
-    
-    carrier #(.TIMER_WIDTH(CARRIER_TIMER_WIDTH)) carrier_timer(
-        .clk(clk),
-        .sys_rst_n(rst_n),           
-        .en(`program_status_register && !start_pulse && !start_pulse_delayed_1),
-        .duration(config_carrier_duration),
-        .out(carrier_out)
-    );
-
-    wire start_pulse_delayed_1;
-    wire start_pulse_delayed_2;
-    delay_2 start_pulse_delayer(
-        .clk(clk),
-        .sys_rst_n(rst_n),
-        .sig_in(start_pulse),
-        .sig_delayed_1_out(start_pulse_delayed_1),
-        .sig_delayed_2_out(start_pulse_delayed_2)
-    );
 
 
     wire countdown_timer_request_data_event;
@@ -421,11 +402,33 @@ module tqvp_hx2003_pulse_transmitter (
 
     wire terminate_program = timer_pulse_out_with_initial && program_end_of_file;
 
+    // Output stage
+    // Apply optional carrier
+    wire modulated_output = config_carrier_en ? (saved_transmit_level && carrier_out): saved_transmit_level;
+
+    // Insert idle level when not transmitting
+    wire active_or_idle_output = (valid_output) ? modulated_output : config_idle_level;
+    
+    // Apply optional inversion
+    wire final_output = active_or_idle_output ^ config_invert_output;
+    
+    wire carrier_out;
+    
+    carrier #(.TIMER_WIDTH(CARRIER_TIMER_WIDTH)) carrier_timer(
+        .clk(clk),
+        .sys_rst_n(rst_n),           
+        .en(valid_output),
+        .duration(config_carrier_duration),
+        .out(carrier_out)
+    );
+
+    wire carrier_or_idle_output = valid_output ? carrier_out : 1'b0;
+
     // Pin outputs
-    assign uo_out[1:0] = 0;
-    assign uo_out[2] = carrier_out;
-    assign uo_out[3] = valid_output;
-    assign uo_out[7:4] = {final_output, final_output, final_output, final_output};
+    assign uo_out[1:0] = {valid_output, valid_output};
+    assign uo_out[2] = user_interrupt;
+    assign uo_out[4:3] = {carrier_or_idle_output, carrier_or_idle_output};
+    assign uo_out[7:5] = {final_output, final_output, final_output};
   
     // Read address doesn't matter
     assign data_out[4:0] = reg_0[4:0];
