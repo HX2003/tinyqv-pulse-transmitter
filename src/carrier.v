@@ -19,7 +19,6 @@ module carrier #(
 
     always @(posedge clk) begin
         if (!sys_rst_n || !en) begin
-            // Setting carrier_counter to zero seems to save a tiny bit of resources
             carrier_counter <= duration;
             out <= 0;
         end else begin

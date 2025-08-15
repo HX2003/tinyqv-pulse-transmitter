@@ -159,7 +159,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | Bits  | Name                                |
 |-------|-------------------------------------|
 | 10:0  | carrier_duration (11 bits)          |
-| 31:12 | *unused*                            |
+| 31:11 | *unused*                            |
 
 ## Reading
 Read address does not matter as a fixed 32 bits of data are assigned to the `data_out` register. The bottom 8, 16 or all 32 bits are valid on read.
@@ -180,7 +180,7 @@ Read address does not matter as a fixed 32 bits of data are assigned to the `dat
 |-----------|----------------|-----------------------------------------|
 | uo_out[0] | valid_output   | High when output is active              |
 | uo_out[1] | valid_output   | High when output is active              |
-| uo_out[2] | interrupt      | High when any interrupt is asserted     |
+| uo_out[2] | user_interrupt | High when any interrupt is asserted     |
 | uo_out[3] | carrier_out    | Square wave from carrier                |
 | uo_out[4] | carrier_out    | Square wave from carrier                |
 | uo_out[5] | final_output   | Pulse transmitter output                |
