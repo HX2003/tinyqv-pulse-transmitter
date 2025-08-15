@@ -162,7 +162,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | 31:11 | *unused*                            |
 
 ## Reading
-Read address does not matter as a fixed 32 bits of data are assigned to the `data_out` register. The bottom 8, 16 or all 32 bits are valid on read.
+A fixed 32 bits of data are assigned to the `data_out` register within this peripheral's address space. The bottom 8, 16 or all 32 bits are valid on read.
 | Bits  | Name                                 |
 |-------|--------------------------------------|
 | 0     | timer_interrupt_status               |
@@ -602,7 +602,9 @@ int main() {
             "nop\n\t"
         );*/
 
-        // Latch the data
+        // Latch the data manually.
+        // There is an alternative approach, which is to directly connect the latch to user_interrupt pin and use program_end_interrupt_en (but its less flexible)
+        // There is yet another alternative approach, which is to hook up a ISR, and control the pin in the ISR (but keep in mind of the large interrupt latency)
         gpio_on(3);
         gpio_off(3);
 
