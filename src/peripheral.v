@@ -81,8 +81,8 @@ module tqvp_hx2003_pulse_transmitter (
     wire [3:0] config_auxillary_prescaler = reg_3[27:24];
     wire [3:0] config_main_prescaler = reg_3[31:28];
 
-    reg [11:0] reg_4;
-    wire [11:0] config_carrier_duration = reg_4[11:0];
+    reg [10:0] reg_4;
+    wire [10:0] config_carrier_duration = reg_4[10:0];
 
     // Interrupt
     assign user_interrupt = `interrupt_status_register > 0;
@@ -161,7 +161,7 @@ module tqvp_hx2003_pulse_transmitter (
                         3'd1: reg_1 <= data_in[31:0];
                         3'd2: reg_2 <= data_in[31:0];
                         3'd3: reg_3 <= data_in[31:0];
-                        3'd4: reg_4 <= data_in[11:0];
+                        3'd4: reg_4 <= data_in[10:0];
                         default: begin
                             // Do nothing
                         end
