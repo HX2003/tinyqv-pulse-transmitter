@@ -116,6 +116,10 @@ module tqvp_hx2003_pulse_transmitter (
     
     reg [31:0] PROGRAM_DATA_MEM[(NUM_DATA_REG - 1):0];
 
+    // -----------------------
+    //     Write Registers
+    // -----------------------
+
     // Writing of registers / program data symbol
     // Note: Unaligned accesses may NOT be checked
     // Note: Unsupported access sizes may be not checked
@@ -286,7 +290,10 @@ module tqvp_hx2003_pulse_transmitter (
     // This is because it takes some cycles to fetch and prefetch the symbols.
     wire valid_output = `program_status_register && !start_pulse && !start_pulse_delayed_1 && !start_pulse_delayed_2;
 
-    
+    // -----------------------
+    //  Program Counter Logic
+    // -----------------------
+
     // The program counter is 8 bits, so between 0 to 255
     //
     // In 2bpe (2 bit per element) mode, program_counter is incremented by 2 each time
@@ -402,7 +409,10 @@ module tqvp_hx2003_pulse_transmitter (
 
     wire terminate_program = timer_pulse_out_with_initial && program_end_of_file;
 
-    // Output stage
+    // -----------------------
+    //      Output Stage
+    // -----------------------
+
     // Apply optional carrier
     wire modulated_output = config_carrier_en ? (saved_transmit_level && carrier_out): saved_transmit_level;
 
@@ -429,7 +439,7 @@ module tqvp_hx2003_pulse_transmitter (
     assign uo_out[2] = user_interrupt;
     assign uo_out[4:3] = {carrier_or_idle_output, carrier_or_idle_output};
     assign uo_out[7:5] = {final_output, final_output, final_output};
-  
+    
     // Read address doesn't matter
     assign data_out[4:0] = reg_0[4:0];
     assign data_out[7:5] = 3'b0;

@@ -86,14 +86,14 @@ Interrupts can be enabled for certain events like whenever a element is transmit
 You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the completion of the program or for busy-waiting. 
 
 ## Register map
-| Address     | Name  | Access | Description      |
-|-------------|-------|--------|------------------|
-| 0x00        | DATA  | W*     | REG_0            |
-| 0x04        | DATA  | W      | REG_1            |
-| 0x08        | DATA  | W      | REG_2            |
-| 0x0C        | DATA  | W      | REG_3            |
-| 0x10        | DATA  | W      | REG_4            |
-| 0x20 - 0x3F | DATA  | W      | PROGRAM_DATA_MEM |
+| Address     | Name              | Access |
+|-------------|-------------------|--------|
+| 0x00        | REG_0             | W*     |
+| 0x04        | REG_1             | W      |
+| 0x08        | REG_2             | W      |
+| 0x0C        | REG_3             | W      |
+| 0x10        | REG_4             | W      |
+| 0x20 - 0x3F | PROGRAM_DATA_MEM  | W      |
 
 The 5 configuration registers are initialized to 0. 
 
@@ -192,7 +192,13 @@ Note, the pins are duplicated to allow for some flexibility.
 ## How to test
 ### Use with TinyQV C SDK
 ```
-#define PULSE_TRANSMITTER_ADDRESS 0x80002C0
+#include <stdbool.h>
+#include <csr.h>
+#include <uart.h>
+#define printf uart_printf
+#include <gpio.h>
+
+#define PULSE_TRANSMITTER_ADDRESS PERI_BASE_ADDRESS(11)
 
 // Register struct definitions
 // Store these struct in RAM, and write to the peripheral. Do not read directly from the address, it will not give back the struct you wrote.
@@ -304,27 +310,27 @@ typedef union {
     uint32_t val;   
 } pulse_transmitter_read_reg_t;
 ```
+A series of examples intended to be used with the above is presented.
 
-#### NEC Remote Control Procotol
+#### [Example] NEC Remote Control Procotol
 This protocol uses pulse distance encoding, and requires 38kHz modulation which is simple enough. However, there needs to be a 9 ms high, and 4.5ms low pulse to initiate the transmission. This can be handled by the auxillary mask. In this example, you should expect a command of value 88 (integer) to be sent to address 36 (integer) every 500ms.
 
 ```
-#include <stdbool.h>
-#include <csr.h>
-#include <uart.h>
-#define printf uart_printf
-#include <gpio.h>
-
 int main() {
-    // Set all outputs to regular mode (not debug)
-    set_debug_sel(0xff);
-
-    set_gpio_func(2, 11); // Set out2 to pulse transmitter, peripheral 11
-    set_gpio_func(3, 11); // Set out3 to pulse transmitter, peripheral 11
-    set_gpio_func(4, 11); // Set out4 to pulse transmitter, peripheral 11
-
     uint8_t address = 36;
     uint8_t command = 88;
+
+    // Enable all outputs (ensure they are not in debug mode)
+    enable_all_outputs();
+
+    // Set outputs 1 - 7 to the pulse transmitter (leaving debug UART untouched)
+    set_gpio_func(1, 11); 
+    set_gpio_func(2, 11);
+    set_gpio_func(3, 11);
+    set_gpio_func(4, 11);
+    set_gpio_func(5, 11);
+    set_gpio_func(6, 11);
+    set_gpio_func(7, 11);
 
     pulse_transmitter_write_reg_0_t reg_0 = {0};
     reg_0.carrier_en = 1;
@@ -352,26 +358,43 @@ int main() {
     // For 1687 us, we want 107968 ticks.
     // For 9 ms, we want 576000 ticks
     // For 4.5 ms, we want 288000 ticks
-
-    // For 21 MHz,
-    pulse_transmitter_write_reg_2_t reg_2 = {0};
-    reg_2.main_low_duration_a = 44;  // Approximately 563 us
-    reg_2.main_low_duration_b = 136; // Approximately 1687 us
-    reg_2.main_high_duration_a = 44; // Approximately 563 us
-
-    pulse_transmitter_write_reg_3_t reg_3 = {0};
-    reg_3.auxillary_mask = 0b00000001;
-    reg_3.auxillary_duration_a = 183; // Approximately 9 ms
-    reg_3.auxillary_duration_b = 90;  // Approximately 4.5 ms
-    reg_3.auxillary_prescaler = 10;
-    reg_3.main_prescaler = 8;
-
+    
     // For the carrier_duration, it can be calculated by
     // reg_4.carrier_duration = CLOCK_FREQ / (DESIRED_CARRIER_FREQ * 2) - 2
     // For 21 MHz, and 38kHz carrier. reg_4.carrier_duration = 274
     // For 64 MHz, and 38kHz carrier. reg_4.carrier_duration = 840
+    
+    // These numbers are for 21 MHz clock (not 64 MHz)
+    // pulse_transmitter_write_reg_2_t reg_2 = {0};
+    // reg_2.main_low_duration_a = 44;  // Approximately 563 us
+    // reg_2.main_low_duration_b = 136; // Approximately 1687 us
+    // reg_2.main_high_duration_a = 44; // Approximately 563 us
+
+    // pulse_transmitter_write_reg_3_t reg_3 = {0};
+    // reg_3.auxillary_mask = 0b00000001;
+    // reg_3.auxillary_duration_a = 183; // Approximately 9 ms
+    // reg_3.auxillary_duration_b = 90;  // Approximately 4.5 ms
+    // reg_3.auxillary_prescaler = 10;
+    // reg_3.main_prescaler = 8;
+    //
+    // pulse_transmitter_write_reg_4_t reg_4 = {0};
+    // reg_4.carrier_duration = 274;
+
+    // These numbers are for 64 MHz clock
+    pulse_transmitter_write_reg_2_t reg_2 = {0};
+    reg_2.main_low_duration_a = 68;  // Approximately 563 us
+    reg_2.main_low_duration_b = 209; // Approximately 1687 us
+    reg_2.main_high_duration_a = 44; // Approximately 563 us
+
+    pulse_transmitter_write_reg_3_t reg_3 = {0};
+    reg_3.auxillary_mask = 0b00000001;
+    reg_3.auxillary_duration_a = 139; // Approximately 9 ms
+    reg_3.auxillary_duration_b = 68;  // Approximately 4.5 ms
+    reg_3.auxillary_prescaler = 12;
+    reg_3.main_prescaler = 9;
+
     pulse_transmitter_write_reg_4_t reg_4 = {0};
-    reg_4.carrier_duration = 274;
+    reg_4.carrier_duration = 840;
 
     pulse_transmitter_write8_reg_0_t reg8_0 = {0};
     reg8_0.start_program = 1;
@@ -395,28 +418,28 @@ int main() {
 
     while(true) { 
         *(volatile uint8_t *)(PULSE_TRANSMITTER_ADDRESS) = reg8_0.val;
+        
         delay_us(500 * 1000);
     }
 }
 ```
 
-#### WS2812B Addressable LED
+#### [Example] WS2812B Addressable LED
 The WS2812B needs the bits to be sent MSB (Most Significant Bit) first. Reversing the bits using the CPU is highly inefficient (at least without the bit reverse instruction). Thankfully, we can take advantage of a trick where program counter can count down instead, this effectively sends the bits in reverse. In this example, you should expect 2 connected WS2812B LEDs to light up and animate between colours.
 
 ```
-#include <stdbool.h>
-#include <csr.h>
-#include <uart.h>
-#define printf uart_printf
-#include <gpio.h>
-
 int main() {
-    // Set all outputs to regular mode (not debug)
-    set_debug_sel(0xff);
+    // Enable all outputs (ensure they are not in debug mode)
+    enable_all_outputs();
 
-    set_gpio_func(2, 11); // Set out2 to pulse transmitter, peripheral 11
-    set_gpio_func(3, 11); // Set out3 to pulse transmitter, peripheral 11
-    set_gpio_func(4, 11); // Set out4 to pulse transmitter, peripheral 11
+    // Set outputs 1 - 7 to the pulse transmitter (leaving debug UART untouched)
+    set_gpio_func(1, 11); 
+    set_gpio_func(2, 11);
+    set_gpio_func(3, 11);
+    set_gpio_func(4, 11);
+    set_gpio_func(5, 11);
+    set_gpio_func(6, 11);
+    set_gpio_func(7, 11);
 
     pulse_transmitter_write_reg_0_t reg_0 = {0};
     reg_0.downcount = 1;
@@ -430,7 +453,7 @@ int main() {
     reg_1.program_loopback_index = 23;
     reg_1.program_end_index = 0;
     reg_1.program_loop_count = 1;
-
+ 
     // For the duration and timer, it can be calculated by
     // For 21 MHz, 1 tick is 47.619 ns
     // For 64 MHz, 1 tick is 15.625 ns
@@ -446,12 +469,19 @@ int main() {
     // For 350 ns, we want 22 ticks.
     // For 850 ns, we want 54 ticks.
 
-    // These numbers are for set for 21 MHz clock (not 64 MHz) 
+    // These numbers are for 21 MHz clock (not 64 MHz) 
+    // pulse_transmitter_write_reg_2_t reg_2 = {0};
+    // reg_2.main_low_duration_a = 16;  // Approximately 850 ns
+    // reg_2.main_low_duration_b = 5;   // Approximately 350 ns
+    // reg_2.main_high_duration_a = 5;  // Approximately 350 ns
+    // reg_2.main_high_duration_b = 16;  // Approximately 850 ns
+
+    // These numbers are for 64 MHz clock
     pulse_transmitter_write_reg_2_t reg_2 = {0};
-    reg_2.main_low_duration_a = 16;  // Approximately 850 ns
-    reg_2.main_low_duration_b = 5;   // Approximately 350 ns
-    reg_2.main_high_duration_a = 5;  // Approximately 350 ns
-    reg_2.main_high_duration_b = 16;  // Approximately 850 ns
+    reg_2.main_low_duration_a = 52;  // Approximately 850 ns
+    reg_2.main_low_duration_b = 20;   // Approximately 350 ns
+    reg_2.main_high_duration_a = 20;  // Approximately 350 ns
+    reg_2.main_high_duration_b = 52;  // Approximately 850 ns
 
     pulse_transmitter_write8_reg_0_t reg8_0 = {0};
     reg8_0.start_program = 1;
@@ -483,6 +513,102 @@ int main() {
             delay_us(5000);
             printf("Read pulse transmitter %d\n", *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS));
         }
+    }
+}
+```
+
+#### [Extra Example] Driving Serial Devices like the 74HC595 Shift Register / SPI Mode 0 Devices
+While the pulse transmitter peripheral is only single channel, signals like the carrier output is exposed. Since both the carrier timer and the program counter uses the same clock, in some scenarios, the carrier output may be repurposed as a clock signal for the 74HC595 Shift Register. The serial data in the program data memory can streamed out. In this example, you should expect the 8 shift register outputs to count in a binary sequence. 
+
+![Pulse Transmitter 74HC595 Shift Register Example](11_pulse_transmitter_74HC595.jpg)
+
+```
+int main() {
+    // Enable all outputs (ensure they are not in debug mode)
+    enable_all_outputs();
+    
+    // Connect OE (Output Enable) to GND, to enable the shift register output
+    // Connect SRCLR (Shift Register Clear) to VCC since we are not using this feature
+
+    set_gpio_func(3, 1);  // Connect RCLK (Latch) to a GPIO 3 (Actual is uo[3] aka out3)
+    set_gpio_func(4, 11); // Connect SRCLK (Storage Register Clock) to our carrier_out of our pulse transmitter peripheral
+    set_gpio_func(5, 11); // Connect SER (Serial Data) to our final_output of our pulse transmitter peripheral
+
+    gpio_off(3);
+
+    // We want to clock in the data at 8 MHz.
+    // Since we are using 1bpe mode, each bit is 2 symbols.
+    // By setting the duration value to 2. So each symbol takes 4 ticks.
+    // As such the total duration for these 2 symbols is 8 ticks.
+    //
+    // Coincidentally, the carrier output starts at low level and toggles thereafter.
+    // This is compatible with the driving waveforms of a 74HC595 Shift Register.
+    // We want to toggle the clock every 4 ticks. So set carrier_duration to 3.
+    //
+    // Note, with a main system frequency of 64 MHz, the maximum achievable frequency is 16 MHz.
+
+    pulse_transmitter_write_reg_0_t reg_0 = {0};
+    reg_0.low_symbol_0 = 0b00;
+    reg_0.low_symbol_1 = 0b00;
+    reg_0.high_symbol_0 = 0b10;
+    reg_0.high_symbol_1 = 0b10;
+
+    pulse_transmitter_write_reg_1_t reg_1 = {0};
+    reg_1.program_end_index = 7; // So 8 bits of data
+
+    pulse_transmitter_write_reg_2_t reg_2 = {0};
+    reg_2.main_low_duration_a = 2;
+    reg_2.main_high_duration_a = 2;
+
+    pulse_transmitter_write_reg_4_t reg_4 = {0};
+    reg_4.carrier_duration = 3;
+
+    pulse_transmitter_write8_reg_0_t reg8_0 = {0};
+    reg8_0.start_program = 1;
+
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS) = reg_0.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 4) = reg_1.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 8) = reg_2.val;
+    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 16) = reg_4.val;
+
+
+    uint8_t i = 0;
+
+    while(true) {
+        *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 32) = (uint32_t)i;
+        *(volatile uint8_t *)(PULSE_TRANSMITTER_ADDRESS) = reg8_0.val;
+
+        // Busy wait until program is done
+        while(true) {
+            pulse_transmitter_read8_reg_t read;
+            read.val = *(volatile uint8_t *)(PULSE_TRANSMITTER_ADDRESS);
+
+            if (!read.program_status) {
+                break;
+            }
+        }
+
+        // Alternatively, for shorter transmissions you can use assembly nops as a delay.
+        // This might be advantageous as according to tinyQV docs, a load from peripheral takes at least 3 cycles.
+        /*
+        __asm__ volatile (
+            "nop\n\t"
+            "nop\n\t"
+            "nop\n\t"
+            "nop\n\t"
+            "nop\n\t"
+            "nop\n\t"
+            "nop\n\t"
+            "nop\n\t"
+        );*/
+
+        // Latch the data
+        gpio_on(3);
+        gpio_off(3);
+
+        i += 1;
+
+        delay_us(100 * 1000);
     }
 }
 ```
