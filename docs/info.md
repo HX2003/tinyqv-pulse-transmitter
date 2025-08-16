@@ -524,6 +524,8 @@ int main() {
 #### [Extra Example] Driving Serial Devices like the 74HC595 Shift Register / SPI Mode 0 Devices
 While the pulse transmitter peripheral is only single channel, signals like the carrier output is exposed. Since both the carrier timer and the program counter uses the same clock, in some scenarios, the carrier output may be repurposed as a clock signal for the 74HC595 Shift Register. The serial data in the program data memory can streamed out. In this example, you should expect the 8 shift register outputs to count in a binary sequence. 
 
+![74HC595 Timing Diagram](11_pulse_transmitter_74HC595.drawio.svg)
+
 ![Pulse Transmitter 74HC595 Shift Register Example](11_pulse_transmitter_74HC595.jpg)
 
 ```
