@@ -429,6 +429,8 @@ int main() {
 #### [Example] WS2812B Addressable LED
 The WS2812B needs the bits to be sent MSB (Most Significant Bit) first. Reversing the bits using the CPU is highly inefficient (at least without the bit reverse instruction). Thankfully, we can take advantage of a trick where program counter can count down instead, this effectively sends the bits in reverse. In this example, you should expect 2 connected WS2812B LEDs to light up and animate between colours.
 
+![WS2812B Addressable LED Timing Diagram](11_pulse_transmitter_WS2812B.drawio.svg)
+
 ```
 int main() {
     // Enable all outputs (ensure they are not in debug mode)
@@ -504,7 +506,7 @@ int main() {
  
             RgbColor rgb = HsvToRgb(hsv);
 
-            uint32_t color = (rgb.b << 16) | rgb.r << 8 | rgb.g;
+            uint32_t color = (rgb.g << 16) | rgb.r << 8 | rgb.b;
              
             *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 32) = color;
 
