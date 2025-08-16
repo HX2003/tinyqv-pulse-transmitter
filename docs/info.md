@@ -315,6 +315,8 @@ A series of examples intended to be used with the above is presented.
 #### [Example] NEC Remote Control Procotol
 This protocol uses pulse distance encoding, and requires 38kHz modulation which is simple enough. However, there needs to be a 9 ms high, and 4.5ms low pulse to initiate the transmission. This can be handled by the auxillary mask. In this example, you should expect a command of value 88 (integer) to be sent to address 36 (integer) every 500ms.
 
+![NEC Remote Control Procotol Timing Diagram](11_pulse_transmitter_NEC.drawio.svg)
+
 ```
 int main() {
     uint8_t address = 36;
@@ -491,7 +493,7 @@ int main() {
     *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 8) = reg_2.val;
 
     while(true) {
-    for (int t = 0; t < 255; t++) {
+        for (int t = 0; t < 255; t++) {
             // you can use this for testing as the code for HsvToRgb was obtained online
             //uint32_t color = t;  // animated blue
 
