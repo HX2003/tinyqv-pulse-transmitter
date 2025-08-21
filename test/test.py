@@ -661,6 +661,38 @@ async def encoded_1bpe_test7(dut):
     await device.write_program_1bpe(program)
     await device.test_expected_waveform_1bpe(program)
 
+# 1BPE test with rollover / wrapping, with auxillary prescaler and auxillary duration
+# It starts at config_program_start_index, rolls over, once it reaches config_program_end_index,
+# it loops to config_program_loopback_index which then counts up and rolls over and so on...
+@cocotb.test(timeout_time=2, timeout_unit="ms")
+async def encoded_1bpe_test8(dut):
+    device = Device(dut)
+    await device.init()
+
+    program_len = MAX_PROGRAM_1BPE_LEN
+
+    program = []
+
+    random.seed(8888) 
+    for _ in range(program_len):
+        program.append(random.randint(0, 1))
+    
+    device.config_program_start_index = 246
+    device.config_program_end_index = 10
+    device.config_program_loopback_index = 15
+    device.config_main_low_duration_a = 0
+    device.config_main_low_duration_b = 1
+    device.config_main_high_duration_a = 1
+    device.config_main_high_duration_b = 0
+    device.config_auxillary_duration_a = 2
+    device.config_auxillary_duration_b = 1
+    device.config_auxillary_prescaler = 2
+    device.config_auxillary_mask = 0b11111111
+    device.config_program_loop_count = 23
+
+    await device.write_program_1bpe(program)
+    await device.test_expected_waveform_1bpe(program)
+
 # Basic test
 @cocotb.test(timeout_time=2, timeout_unit="ms")
 async def basic_2bpe_test1(dut):
