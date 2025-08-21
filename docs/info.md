@@ -83,7 +83,7 @@ You can specify at what position in the buffer the program starts, stops, or loo
 Interrupts can be enabled for certain events like whenever a element is transmitted, whenever the program loops, whenever the program counter reaches the half of the full capacity, or when the program completes. This may be useful in helping to refill the program data memory manually (in the absence of a FIFO) to enable continuous transmission.
 
 ### Program status
-You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the completion of the program or for busy-waiting. ⚠️Note that `program_counter` and `program_loop_counter` may be ahead of the currently transmitted symbol as they are incremented/decremented **before** the completion of the transmission of the symbol as a means of prefetching the next symbol data.
+You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the progress of the program or for busy-waiting for the completion of the program. ⚠️Note that `program_counter` and `program_loop_counter` may be ahead of the currently transmitted symbol as they are incremented/decremented **before** the completion of the transmission of the symbol as a means of prefetching the next symbol data.
 
 ## Register map
 | Address     | Name              | Access |
