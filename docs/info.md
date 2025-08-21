@@ -43,10 +43,10 @@ The transmission level and duration is described by a 2-bit **symbol**.
 ### Modes of operation
 The pulse transmitter supports either 1bpe (default) or 2bpe mode.
 
-| Mode                     | Description                                                                                         |
-|--------------------------|-----------------------------------------------------------------------------------------------------|
-| 1bpe (1 bit per element) | Support up to 256 elements, each 1-bit element is expanded to 2, 2-bit symbols via a lookup table   |
-| 2bpe (2 bit per element) | Support up to 128 elements, each 2-bit element is directly mapped to a 2-bit symbol                 |
+| Mode                     | Description    |
+|--------------------------|----------------|
+| 1bpe (1 bit per element) | Support up to 256 elements, each 1-bit element is expanded to 2, 2-bit symbols via a lookup table. The program counter increments/decrements by 1 per element (2 symbols). |
+| 2bpe (2 bit per element) | Support up to 128 elements, each 2-bit element is directly mapped to a 2-bit symbol. The program counter increments/decrements by 2 per element. As such `program_start_index`, `program_end_index` and `program_end_loopback_index` must be a multiple of 2. |
 
 As described, in 1bpe mode, each bit in program data memory is expanded to 2 symbols.
 | Value  | First symbol       |  Second symbol     |
@@ -83,7 +83,7 @@ You can specify at what position in the buffer the program starts, stops, or loo
 Interrupts can be enabled for certain events like whenever a element is transmitted, whenever the program loops, whenever the program counter reaches the half of the full capacity, or when the program completes. This may be useful in helping to refill the program data memory manually (in the absence of a FIFO) to enable continuous transmission.
 
 ### Program status
-You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the completion of the program or for busy-waiting. 
+You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the completion of the program or for busy-waiting. ⚠️Note that `program_counter` and `program_loop_counter` may be ahead of the currently transmitted symbol as they are incremented/decremented **before** the completion of the transmission of the symbol as a means of prefetching the next symbol data.
 
 ## Register map
 | Address     | Name              | Access |
