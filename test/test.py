@@ -680,6 +680,13 @@ async def encoded_1bpe_test8(dut):
     device.config_program_start_index = 246
     device.config_program_end_index = 10
     device.config_program_loopback_index = 15
+
+    device.config_low_symbol_0 = 0b10
+    device.config_low_symbol_1 = 0b00
+    
+    device.config_high_symbol_0 = 0b11
+    device.config_high_symbol_1 = 0b01
+    
     device.config_main_low_duration_a = 0
     device.config_main_low_duration_b = 1
     device.config_main_high_duration_a = 1
