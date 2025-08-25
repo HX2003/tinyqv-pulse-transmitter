@@ -521,8 +521,8 @@ int main() {
 }
 ```
 
-#### [Extra Example] Driving Serial Devices like the 74HC595 Shift Register / SPI Mode 0 Devices
-While the pulse transmitter peripheral is only single channel, signals like the carrier output is exposed. Since both the carrier timer and the program counter uses the same clock, in some scenarios, the carrier output may be repurposed as a clock signal for the 74HC595 Shift Register. The serial data in the program data memory can streamed out. In this example, you should expect the 8 shift register outputs to count in a binary sequence. 
+#### [Extra Experimental Example] Driving Serial Devices like the 74HC595 Shift Register / SPI Mode 0/2 Devices
+While the pulse transmitter peripheral is only single channel, signals like the `symbol_toggle_or_idle_output` and `carrier_or_zero_output` is exposed. The `symbol_toggle_or_idle_output` signal can be used as a clock signal for the 74HC595 Shift Register. The serial data in the program data memory can streamed out. In this example, you should expect the 8 shift register outputs to count in a binary sequence. 
 
 ![74HC595 Timing Diagram](11_pulse_transmitter_74HC595.drawio.svg)
 
@@ -536,23 +536,31 @@ int main() {
     // Connect OE (Output Enable) to GND, to enable the shift register output
     // Connect SRCLR (Shift Register Clear) to VCC since we are not using this feature
 
-    set_gpio_func(3, 1);  // Connect RCLK (Latch) to a GPIO 3 (Actual is uo[3] aka out3)
-    set_gpio_func(4, 11); // Connect SRCLK (Storage Register Clock) to our carrier_or_zero_output of our pulse transmitter peripheral
+    set_gpio_func(2, 1);  // Connect RCLK (Latch) to a GPIO 2 (Actual is uo[2] aka out2)
+    set_gpio_func(3, 11); // Connect SRCLK (Storage Register Clock) to our symbol_toggle_or_idle_output of our pulse transmitter peripheral
     set_gpio_func(5, 11); // Connect SER (Serial Data) to our final_output of our pulse transmitter peripheral
 
-    gpio_off(3);
+    gpio_off(2);
 
     // We want to clock in the data at 8 MHz.
     // Since we are using 1bpe mode, each bit is 2 symbols.
     // By setting the duration value to 2. So each symbol takes 4 ticks.
     // As such the total duration for these 2 symbols is 8 ticks.
     //
-    // Coincidentally, the carrier output starts at low level and toggles thereafter.
+    // To generate the clock signal there are 2 methods:
+    // We can simply hook up the clock pin of the shift register to the symbol_toggle_or_idle_output.
+    // Since each element is 2 symbols, and the symbol_toggle_or_idle_output starts low, and toggles every time a symbol has completed sending,
+    // we have generated the required signal.
+    //
+    // Alternatively, the carrier output starts at low level and toggles thereafter.
     // This is compatible with the driving waveforms of a 74HC595 Shift Register.
     // We want to toggle the clock every 4 ticks. So set carrier_duration to 3.
+    // pulse_transmitter_write_reg_4_t reg_4 = {0};
+    // reg_4.carrier_duration = 3;
     //
-    // Note, with a main system frequency of 64 MHz, the maximum achievable frequency is 16 MHz.
+    // In 1bpe mode, with a main system frequency of 64 MHz, the maximum achievable clock frequency is 16 MHz.
 
+    // We just duplicate the symbol transmit level
     pulse_transmitter_write_reg_0_t reg_0 = {0};
     reg_0.low_symbol_0 = 0b00;
     reg_0.low_symbol_1 = 0b00;
@@ -561,13 +569,10 @@ int main() {
 
     pulse_transmitter_write_reg_1_t reg_1 = {0};
     reg_1.program_end_index = 7; // So 8 bits of data
-
+    
     pulse_transmitter_write_reg_2_t reg_2 = {0};
     reg_2.main_low_duration_a = 2;
     reg_2.main_high_duration_a = 2;
-
-    pulse_transmitter_write_reg_4_t reg_4 = {0};
-    reg_4.carrier_duration = 3;
 
     pulse_transmitter_write8_reg_0_t reg8_0 = {0};
     reg8_0.start_program = 1;
@@ -575,8 +580,7 @@ int main() {
     *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS) = reg_0.val;
     *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 4) = reg_1.val;
     *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 8) = reg_2.val;
-    *(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 16) = reg_4.val;
-
+    //*(volatile uint32_t *)(PULSE_TRANSMITTER_ADDRESS + 16) = reg_4.val;   
 
     uint8_t i = 0;
 
@@ -611,8 +615,8 @@ int main() {
         // Latch the data manually.
         // There is an alternative approach, which is to directly connect the latch to user_interrupt pin and use program_end_interrupt_en (but its less flexible)
         // There is yet another alternative approach, which is to hook up a ISR, and control the pin in the ISR (but keep in mind of the large interrupt latency)
-        gpio_on(3);
-        gpio_off(3);
+        gpio_on(2);
+        gpio_off(2);
 
         i += 1;
 
@@ -620,5 +624,16 @@ int main() {
     }
 }
 ```
+
+#### [Extra Experimental Example] Driving Digital-to-analog Converters (Phillips I2S & Others)
+While the pulse transmitter peripheral is only single channel, signals like the `symbol_toggle_or_idle_output` and `carrier_or_zero_output` is exposed. The `symbol_toggle_or_idle_output` signal can be used as a bit clock signal for a suitable DAC like the PCM5102A while the `carrier_or_zero_output` is used as the word clock. However, it may be difficult to output a bit clock frequency perfectly matches for example 44100 * 32 Hz, as such you might need to find the closest common sampling frequency or tweak the CPU clock frequency. In this example, you should expect the a sawtooth waveform to be generated on the output of the stereo DAC.
+
+```
+int main() {
+    // Enable all outputs (ensure they are not in debug mode)
+    enable_all_outputs();
+}
+```
+
 ## External hardware
 For testing with an IR LED, the output pins cannot deliver much current, so use a buffer or transistor to drive the LED.
