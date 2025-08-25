@@ -182,7 +182,7 @@ A fixed 32 bits of data are assigned to the `data_out` register within this peri
 | uo_out[1] | valid_output                 | High when program is running            |
 | uo_out[2] | user_interrupt               | High when any interrupt is asserted     |
 | uo_out[3] | symbol_toggle_or_idle_output | At `idle_level` when program is not running. Starts low and toggle every time a symbol has completed sending. `invert_output` has no effect |
-| uo_out[4] | carrier_or_zero_output       | Low when program is not running. Starts low and toggles at a the desired frequency to produce a square wave. `invert_output`, `idle_level`and `carrier_en` has no effect |
+| uo_out[4] | carrier_or_zero_output       | Low when program is not running. Starts low and toggles at the desired frequency to produce a square wave. `invert_output`, `idle_level`and `carrier_en` has no effect |
 | uo_out[5] | final_output                 | At `idle_level` when program is not running. Pulse data output. `invert_output` applies to both idle level and pulse data |
 | uo_out[6] | final_output                 | At `idle_level` when program is not running. Pulse data output. `invert_output` applies to both idle level and pulse data |
 | uo_out[7] | final_output                 | At `idle_level` when program is not running. Pulse data output. `invert_output` applies to both idle level and pulse data |
