@@ -273,14 +273,17 @@ module tqvp_hx2003_pulse_transmitter (
         end
     end
     
+    reg saved_symbol_toggle;
     reg saved_transmit_level;
     always @(posedge clk) begin
-        if (!rst_n) begin
+        if (!rst_n || !`program_status_register) begin
             saved_transmit_level <= 0;
+            saved_symbol_toggle <= 1;
         end else begin
             if(timer_pulse_out_with_initial) begin
                 // save the transmit_level
                 saved_transmit_level <= transmit_level;
+                saved_symbol_toggle <= !saved_symbol_toggle;
             end
         end
     end
@@ -432,12 +435,14 @@ module tqvp_hx2003_pulse_transmitter (
         .out(carrier_out)
     );
 
-    wire carrier_or_idle_output = valid_output ? carrier_out : 1'b0;
+    wire symbol_toggle_or_idle_output = valid_output ? saved_symbol_toggle : config_idle_level;
+    wire carrier_or_zero_output = valid_output ? carrier_out : 1'b0;
 
     // Pin outputs
     assign uo_out[1:0] = {valid_output, valid_output};
     assign uo_out[2] = user_interrupt;
-    assign uo_out[4:3] = {carrier_or_idle_output, carrier_or_idle_output};
+    assign uo_out[3] = symbol_toggle_or_idle_output;
+    assign uo_out[4] = carrier_or_zero_output;
     assign uo_out[7:5] = {final_output, final_output, final_output};
     
     // Read address doesn't matter

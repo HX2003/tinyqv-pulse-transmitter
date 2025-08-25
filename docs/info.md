@@ -43,10 +43,10 @@ The transmission level and duration is described by a 2-bit **symbol**.
 ### Modes of operation
 The pulse transmitter supports either 1bpe (default) or 2bpe mode.
 
-| Mode                     | Description                                                                                         |
-|--------------------------|-----------------------------------------------------------------------------------------------------|
-| 1bpe (1 bit per element) | Support up to 256 elements, each 1-bit element is expanded to 2, 2-bit symbols via a lookup table   |
-| 2bpe (2 bit per element) | Support up to 128 elements, each 2-bit element is directly mapped to a 2-bit symbol                 |
+| Mode                     | Description    |
+|--------------------------|----------------|
+| 1bpe (1 bit per element) | Support up to 256 elements, each 1-bit element is expanded to 2, 2-bit symbols via a lookup table. The program counter increments/decrements by 1 per element (2 symbols). |
+| 2bpe (2 bit per element) | Support up to 128 elements, each 2-bit element is directly mapped to a 2-bit symbol. The program counter increments/decrements by 2 per element. As such `program_start_index`, `program_end_index` and `program_end_loopback_index` must be a multiple of 2. |
 
 As described, in 1bpe mode, each bit in program data memory is expanded to 2 symbols.
 | Value  | First symbol       |  Second symbol     |
@@ -80,10 +80,10 @@ The carrier timer is a 11 bit timer that generates a fixed 50% duty cycle square
 You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up a certain number of times or loop forever. Moreover, instead of counting up, you can count down and send bits in reverse.
 
 ### Interrupts
-Interrupts can be enabled for certain events like whenever a element is transmitted, whenever the program loops, whenever the program counter reaches the half of the full capacity, or when the program completes. This may be useful in helping to refill the program data memory manually (in the absence of a FIFO) to enable continuous transmission.
+Interrupts can be enabled for certain events like whenever a element is transmitted, whenever the program loops, whenever the program counter reaches the half of the full capacity, or when the program completes. This may be useful in helping to refill the program data memory manually (in the absence of a FIFO) to enable continuous transmission. Note that interrupts (if enabled) are not automatically cleared when the program is started/terminated; you have to deliberately clear it.
 
 ### Program status
-You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the completion of the program or for busy-waiting. 
+You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the progress of the program or for busy-waiting for the completion of the program. ⚠️Note that `program_counter` and `program_loop_counter` may be ahead of the currently transmitted symbol as they are incremented/decremented **before** the completion of the transmission of the symbol as a means of prefetching the next symbol data.
 
 ## Register map
 | Address     | Name              | Access |
@@ -176,18 +176,18 @@ A fixed 32 bits of data are assigned to the `data_out` register within this peri
 | 31:24 | *unused* (value of 0)                |
 
 ## Pin mappings
-| Pin       | Value          | Description                             |
-|-----------|----------------|-----------------------------------------|
-| uo_out[0] | valid_output   | High when output is active              |
-| uo_out[1] | valid_output   | High when output is active              |
-| uo_out[2] | user_interrupt | High when any interrupt is asserted     |
-| uo_out[3] | carrier_out    | Square wave from carrier                |
-| uo_out[4] | carrier_out    | Square wave from carrier                |
-| uo_out[5] | final_output   | Pulse transmitter output                |
-| uo_out[6] | final_output   | Pulse transmitter output                |
-| uo_out[7] | final_output   | Pulse transmitter output                |
+| Pin       | Value                        | Description                             |
+|-----------|------------------------------|-----------------------------------------|
+| uo_out[0] | valid_output                 | High when program is running            |
+| uo_out[1] | valid_output                 | High when program is running            |
+| uo_out[2] | user_interrupt               | High when any interrupt is asserted     |
+| uo_out[3] | symbol_toggle_or_idle_output | At `idle_level` when program is not running. Starts low and toggle every time a symbol has completed sending. `invert_output` has no effect |
+| uo_out[4] | carrier_or_zero_output       | Low when program is not running. Starts low and toggles at a the desired frequency to produce a square wave. `invert_output`, `idle_level`and `carrier_en` has no effect |
+| uo_out[5] | final_output                 | At `idle_level` when program is not running. Pulse data output. `invert_output` applies to both idle level and pulse data |
+| uo_out[6] | final_output                 | At `idle_level` when program is not running. Pulse data output. `invert_output` applies to both idle level and pulse data |
+| uo_out[7] | final_output                 | At `idle_level` when program is not running. Pulse data output. `invert_output` applies to both idle level and pulse data |
 
-Note, the pins are duplicated to allow for some flexibility.
+Note, some pins are duplicated to allow for some flexibility.
 
 ## How to test
 ### Use with TinyQV C SDK
@@ -537,7 +537,7 @@ int main() {
     // Connect SRCLR (Shift Register Clear) to VCC since we are not using this feature
 
     set_gpio_func(3, 1);  // Connect RCLK (Latch) to a GPIO 3 (Actual is uo[3] aka out3)
-    set_gpio_func(4, 11); // Connect SRCLK (Storage Register Clock) to our carrier_out of our pulse transmitter peripheral
+    set_gpio_func(4, 11); // Connect SRCLK (Storage Register Clock) to our carrier_or_zero_output of our pulse transmitter peripheral
     set_gpio_func(5, 11); // Connect SER (Serial Data) to our final_output of our pulse transmitter peripheral
 
     gpio_off(3);
