@@ -303,9 +303,9 @@ typedef union {
         uint32_t program_counter_mid_interrupt_status : 1; // [3]
         uint32_t program_status                       : 1; // [4]
         uint32_t _unused_reg_a                        : 3; // [7:5]
-        uint32_t program_counter                      : 8;  // [15:8]
-        uint32_t program_loop_counter                 : 8;  // [23:16]
-        uint32_t _unused_reg_b                        : 8;  // [31:24]
+        uint32_t program_counter                      : 8; // [15:8]
+        uint32_t program_loop_counter                 : 8; // [23:16]
+        uint32_t _unused_reg_b                        : 8; // [31:24]
     };
     uint32_t val;   
 } pulse_transmitter_read_reg_t;
@@ -627,7 +627,10 @@ int main() {
 
 #### [Extra Experimental Example] Driving Digital-to-analog Converters using Phillips I2S & Left/Right Justified
 The pulse transmitter can be used to drive a suitable DAC like the PCM5102A which do not require a MCLK. While the peripheral is only single channel, signals like `symbol_toggle_or_idle_output` and `carrier_or_zero_output` is exposed. The `symbol_toggle_or_idle_output` signal can be used as a bit clock signal while the `carrier_or_zero_output` is used as the word clock. However, it may be non-trivial to output a bit clock frequency perfectly matches for example 32000 * 32 Hz. With a main clock frequency of 63.5 MHz, the error is less than 0.02%. With a main clock frequency of 64 MHz, the output is off by 0.8%, this might still be acceptable to some DACs. In this example, the stereo DAC is driven at a 32kHz sample rate. You should expect the a sawtooth tone of 440 Hz to be generated. Next, the previous tone is turned off, and a sawtooth tone of 660 Hz is generated. Next, both tones are simultaneously enabled. Next, both tones are disabled. This procedure loops forever.
-  
+
+![I2S Timing Diagram](11_pulse_transmitter_I2S.drawio.svg)
+![I2S Audio Diagram](11_pulse_transmitter_I2S.png)
+
 ```
 #define SAMPLE_RATE   32000
 #define VOLUME_REDUCTION 4
@@ -659,7 +662,7 @@ int main() {
 
     gpio_off(2);
 
-    // I2S needs the bits to be sent MSB (Most Significant Bit) first.
+    // I2S needs the bits to be sent MSB (Most Significant Bit) first, so we down count.
     // For a single sample of audio, we can send 16 bits of data for the left and 16 bits of data for the right.
     // We want continous transmission, so loop_forever is enabled.
     //
@@ -787,14 +790,13 @@ void process() {
         // Ideas for further optimization, in tinyQV, load/store to RAM (aka PSRAM) takes a large number of cycles which is not great.
         // Feel free to further optimize this looking into multi-word load/stores, or by using other peripheral as a faster memory.
         
-        // Nudging the compiler to load from memory to a register instead of loading from every time.
+        // Nudging the compiler to load from memory to a register instead of loading from PSRAM every time.
         uint32_t temp_accm_a = accm_a;
         uint32_t temp_accm_b = accm_b;
         uint8_t temp_osc_enabled = osc_enabled;
 
-        // See what interrupt were triggered
+        // Check the program counter
         pulse_transmitter_read_reg_t read;
-
         read.val = fast_lw(PULSE_TRANSMITTER_OFFSET);
         while (read.program_counter <= 127) {
             read.val = fast_lw(PULSE_TRANSMITTER_OFFSET);
@@ -823,6 +825,7 @@ void process() {
         fast_sw(calculate_sample(temp_osc_enabled, temp_accm_a, temp_accm_b), PULSE_TRANSMITTER_OFFSET + 32);
         gpio_off(2);
 
+        // Check the program counter
         pulse_transmitter_read_reg_t read2;
         read2.val = fast_lw(PULSE_TRANSMITTER_OFFSET);
         while (read2.program_counter > 127) {
