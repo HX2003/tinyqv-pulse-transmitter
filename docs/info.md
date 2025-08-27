@@ -285,7 +285,7 @@ typedef union {
 
 typedef union {
     struct {
-        uint8_t timer_interrupt_status_status        : 1; // [0]
+        uint8_t timer_interrupt_status               : 1; // [0]
         uint8_t program_loop_interrupt_status        : 1; // [1]
         uint8_t program_end_interrupt_status         : 1; // [2]
         uint8_t program_counter_mid_interrupt_status : 1; // [3]
