@@ -69,8 +69,8 @@ Each 2-bit symbol has an associated duration value via one of the six lookup tab
 | 1             | X            | 1            | auxillary_duration_b |
 
 To allow for more flexibility in the durations, a 8 bit `auxillary_mask` enables auxillary duration to be used.
-- In 1bpe mode, the auxillary mask is mapped to the first 8 elements (expanded to 16 symbols).
-- In 2bpe mode, the auxillary mask is mapped to the first 8 elements (8 symbols).
+- In 1bpe mode, the auxillary mask is mapped to elements 0 to 7 (expanded to 16 symbols) in program data memory.
+- In 2bpe mode, the auxillary mask is mapped to elements 0 to 7 (8 symbols) in program data memory.
 
 There is also a 4 bit prescaler value each for main and auxillary.
 Combined together, total duration ticks = (duration + 2) << prescaler.
