@@ -18,7 +18,7 @@ Author: Han
 Peripheral index: 11
 
 ## What it does
-Pulse transmitter is a versatile peripheral that can transmit digital waveforms of various durations, with optional support for carrier modulation. Various schemes like Pulse Distance, Pulse Width, Manchester encoding, etc. can be easily implemented. Once the program has been configured, no CPU intervention is required. This makes it ideal for remote control transmitter applications and even makes it suitable to drive other devices like the WS2812B addressable LED.
+Pulse transmitter is a versatile peripheral that can transmit digital waveforms of various durations, with optional support for carrier modulation. Various schemes like Pulse Distance, Pulse Width, Manchester encoding, etc. can be easily implemented. Once the program has been configured, no CPU intervention is required. This makes it ideal for remote control transmitter applications and even makes it suitable to drive other devices like the WS2812B addressable LED, shift registers or I2S DACs.
 
 ### Specifications
 - 256 bits of program data memory
@@ -29,6 +29,8 @@ Pulse transmitter is a versatile peripheral that can transmit digital waveforms 
 - 4 configurable interrupts (not shown in the architecture diagram)
 
 ### Architecture
+The program data memory stores the data for the symbols to be transmitted. These symbols are selected based on the program counter which allows the symbols to be transmitted one after another.
+
 ![Pulse Transmitter Architecture](11_pulse_transmitter_architecture.drawio.svg)
 
 ### What is a symbol?
@@ -46,7 +48,7 @@ The pulse transmitter supports either 1bpe (default) or 2bpe mode.
 | Mode                     | Description    |
 |--------------------------|----------------|
 | 1bpe (1 bit per element) | Support up to 256 elements, each 1-bit element is expanded to 2, 2-bit symbols via a lookup table. The program counter increments/decrements by 1 per element (2 symbols). |
-| 2bpe (2 bit per element) | Support up to 128 elements, each 2-bit element is directly mapped to a 2-bit symbol. The program counter increments/decrements by 2 per element. As such `program_start_index`, `program_end_index` and `program_end_loopback_index` must be a multiple of 2. |
+| 2bpe (2 bit per element) | Support up to 128 elements, each 2-bit element is directly mapped to a 2-bit symbol. The program counter increments/decrements by 2 per element. As such `program_start_index`, `program_end_index` and `program_loopback_index` must be a multiple of 2. |
 
 As described, in 1bpe mode, each bit in program data memory is expanded to 2 symbols.
 | Value  | First symbol       |  Second symbol     |
@@ -76,31 +78,34 @@ Combined together, total duration ticks = (duration + 2) << prescaler.
 ### Carrier
 The carrier timer is a 11 bit timer that generates a fixed 50% duty cycle square wave. Assuming a clock of 64 MHz, the minimum achievable frequency is approximately 15.6 KHz, while the maximum is 32 MHz. The total duration ticks of a full cycle (high and low) is 2 * (carrier_duration + 1). Note that the carrier output is initially low at the start of the program, and is active when the program is running on a seperate output pin even when `carrier_en` is disabled.
 
-### Other extra features
-You can specify at what position in the buffer the program starts, stops, or loopback to. You can choose to not loop, loop up a certain number of times or loop forever. Moreover, instead of counting up, you can count down and send bits in reverse.
+### Program counter
+You can specify where in program data memory the program starts, stops, or loopback to. You can choose to not loop, loop a certain number of times or loop forever.
+
+**Down counting**  
+Instead of counting up, you can count down and effectively send bits in reverse.
+
+⚠️In 1bpe mode, the order of the symbols sent **within** a element is not changed, ie. the first symbol is sent, then the second symbol is sent.
 
 ### Interrupts
 Interrupts can be enabled for certain events like whenever a element is transmitted, whenever the program loops, whenever the program counter reaches the half of the full capacity, or when the program completes. This may be useful in helping to refill the program data memory manually (in the absence of a FIFO) to enable continuous transmission. Note that interrupts (if enabled) are not automatically cleared when the program is started/terminated; you have to deliberately clear it.
 
 ### Program status
-You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the progress of the program or for busy-waiting for the completion of the program. ⚠️Note that `program_counter` and `program_loop_counter` may be ahead of the currently transmitted symbol as they are incremented/decremented **before** the completion of the transmission of the symbol as a means of prefetching the next symbol data.
+You can check the program counter, the program loop counter and whether a program is running by reading this peripheral. This may be useful to check for the progress of the program or for busy-waiting for the completion of the program.
 
-## Register map
-| Address     | Name              | Access |
-|-------------|-------------------|--------|
-| 0x00        | REG_0             | W*     |
-| 0x04        | REG_1             | W      |
-| 0x08        | REG_2             | W      |
-| 0x0C        | REG_3             | W      |
-| 0x10        | REG_4             | W      |
-| 0x20 - 0x3F | PROGRAM_DATA_MEM  | W      |
-
-The 5 configuration registers are initialized to 0. 
-
-For the program memory, the initial value is undefined.
+⚠️The `program_counter` and `program_loop_counter` may be ahead of the currently transmitted symbol as they are incremented/decremented **before** the completion of the transmission of the symbol as a means of prefetching the next symbol data.
 
 ## Writing
 Only aligned 32 bit writes are supported in general. However, 8 bit write is allowed at address 0x00 to aid in clearing interrupts, starting or stopping the program.
+
+### Register map
+| Address     | Name              | Access | Initial value |
+|-------------|-------------------|--------|---------------|
+| 0x00        | REG_0             | W*     | 0             |
+| 0x04        | REG_1             | W      | 0             |
+| 0x08        | REG_2             | W      | 0             |
+| 0x0C        | REG_3             | W      | 0             |
+| 0x10        | REG_4             | W      | 0             |
+| 0x20 - 0x3F | PROGRAM_DATA_MEM  | W      | *undefined*   |
 
 ### REG_0
 | Bits  | Name                                |
@@ -135,7 +140,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 |-------|-------------------------------------|
 | 7:0   | program_start_index                 |
 | 15:8  | program_end_index                   |
-| 23:16 | program_end_loopback_index          |
+| 23:16 | program_loopback_index              |
 | 31:24 | program_loop_count                  |
 
 ### REG_2
@@ -162,7 +167,7 @@ To clear interrupts, start or stop the program, simply write a '1' to correspond
 | 31:11 | *unused*                            |
 
 ## Reading
-A fixed 32 bits of data are assigned to the `data_out` register within this peripheral's address space. The bottom 8, 16 or all 32 bits are valid on read.
+Reading any address within this peripheral's address space will give you the following data. The bottom 8, 16 or all 32 bits are valid on read.
 | Bits  | Name                                 |
 |-------|--------------------------------------|
 | 0     | timer_interrupt_status               |
